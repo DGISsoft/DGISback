@@ -1,17 +1,20 @@
+// services/go.mod (исправленный)
 module github.com/DGISsoft/DGISback/services
 
 go 1.24.0
 
 require (
+	github.com/DGISsoft/DGISback/services/mongo v0.0.0
 	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.17.4
 )
 
-replace github.com/yourusername/reporting-system/models => ../models
+// Локальные replace директивы
+replace github.com/DGISsoft/DGISback/models => ../models
 
-replace github.com/yourusername/reporting-system/env => ../env
+replace github.com/DGISsoft/DGISback/env => ../env
 
-replace github.com/yourusername/reporting-system/services/mongo => ./mongo
+replace github.com/DGISsoft/DGISback/services/mongo => ./mongo
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

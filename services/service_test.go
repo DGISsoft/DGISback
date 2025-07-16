@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/99designs/gqlgen/integration/server/models-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -222,16 +223,11 @@ func TestWithRealModels(t *testing.T) {
 	defer cleanup()
 	
 	ctx := context.Background()
-	
-	// Раскомментируйте когда добавите импорт моделей:
-	// import "github.com/DGISsoft/DGISback/models"
-	
-	/*
 	user := models.User{
 		Login:    "testuser",
 		Role:     models.RoleDGIS,
 		FullName: "Test User",
-		Campus:   models.CampusNorth,
+		Campus:   models.,
 		IsActive: true,
 	}
 	
@@ -244,5 +240,5 @@ func TestWithRealModels(t *testing.T) {
 	
 	assert.Equal(t, user.Login, foundUser.Login)
 	assert.Equal(t, user.Role, foundUser.Role)
-	*/
+
 }

@@ -1,4 +1,4 @@
-module mongo
+module github.com/DGISsoft/DGISback/services/mongo
 
 go 1.24.0
 

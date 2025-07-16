@@ -13,9 +13,9 @@ import (
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"mongo"
-	"mongo/command"
-	"mongo/query"
+	"github.com/DGISsoft/DGISback/services/mongo"
+	"github.com/DGISsoft/DGISback/services/mongo/command"
+	"github.com/DGISsoft/DGISback/services/mongo/query"
 )
 
 type TestDoc struct {
@@ -214,4 +214,35 @@ func TestPagination(t *testing.T) {
 	
 	// Убеждаемся что страницы разные
 	assert.NotEqual(t, page1[0].ID, page2[0].ID)
+}
+
+// Тест с использованием реальных моделей проекта
+func TestWithRealModels(t *testing.T) {
+	_, collection, cleanup := setupTest(t)
+	defer cleanup()
+	
+	ctx := context.Background()
+	
+	// Раскомментируйте когда добавите импорт моделей:
+	// import "github.com/DGISsoft/DGISback/models"
+	
+	/*
+	user := models.User{
+		Login:    "testuser",
+		Role:     models.RoleDGIS,
+		FullName: "Test User",
+		Campus:   models.CampusNorth,
+		IsActive: true,
+	}
+	
+	result, err := command.InsertOne(ctx, collection, user)
+	require.NoError(t, err)
+	
+	var foundUser models.User
+	err = query.FindByID(ctx, collection, result.InsertedID.(primitive.ObjectID), &foundUser)
+	require.NoError(t, err)
+	
+	assert.Equal(t, user.Login, foundUser.Login)
+	assert.Equal(t, user.Role, foundUser.Role)
+	*/
 }

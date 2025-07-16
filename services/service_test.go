@@ -13,9 +13,9 @@ import (
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"backend/services/mongo"
-	"backend/services/mongo/command"
-	"backend/services/mongo/query"
+	"mongo"
+	"mongo/command"
+	"mongo/query"
 )
 
 type TestDoc struct {

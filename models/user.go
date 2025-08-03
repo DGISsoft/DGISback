@@ -1,8 +1,12 @@
 package models
 
 import (
+	"fmt"
+	"io"
+	"strconv"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -57,4 +61,23 @@ func (r UserRole) IsValid() bool {
     default:
         return false
     }
+}
+
+func MarshalObjectID(id primitive.ObjectID) graphql.Marshaler {
+	return graphql.WriterFunc(func(w io.Writer) {
+		_, _ = io.WriteString(w, strconv.Quote(id.Hex()))
+	})
+}
+
+func UnmarshalObjectID(v interface{}) (primitive.ObjectID, error) {
+	str, ok := v.(string)
+	if !ok {
+		return primitive.NilObjectID, fmt.Errorf("ObjectID must be a string, got %T", v)
+	}
+
+	objID, err := primitive.ObjectIDFromHex(str)
+	if err != nil {
+		return primitive.NilObjectID, fmt.Errorf("invalid ObjectID format: %w", err)
+	}
+	return objID, nil
 }

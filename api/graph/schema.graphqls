@@ -1,3 +1,6 @@
+scalar Time
+scalar ObjectID
+
 enum UserRole {
   RoleChairman
   RoleDGIS
@@ -6,13 +9,13 @@ enum UserRole {
 }
 
 type User {
-  id: ID!
+  id: ObjectID!
   login: String!
   role: UserRole!
   fullName: String!
   building: String
   phoneNumber: String!
   telegramTag: String!
-  createdAt: String!
-  updatedAt: String!
+  createdAt: Time!
+  updatedAt: Time!
 }

@@ -21,6 +21,8 @@ models:
     model:
       - github.com/99designs/gqlgen/graphql.ID
       - github.com/99designs/gqlgen/graphql.Int64
+  ObjectID:
+    model: github.com/DGISsoft/DGISback/models.ObjectID
   UUID:
     model:
       - github.com/99designs/gqlgen/graphql.UUID

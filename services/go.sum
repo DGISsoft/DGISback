@@ -1,3 +1,5 @@
+github.com/DGISsoft/DGISback/models v0.0.0-20250803062930-9f563a396a1c h1:7mMr11tJFM0qDxE90x5cTtW1ZNjeBhOjLurqigeY3l0=
+github.com/DGISsoft/DGISback/models v0.0.0-20250803062930-9f563a396a1c/go.mod h1:06YT0X4bWBI6gxkk6KxG6U4P+R0sa+AfTS7f+s8gpgI=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/golang/snappy v0.0.4 h1:yAGX7huGHXlcLOEtBnF4w7FQwA26wojNCwOYAEhLjQM=

@@ -22,7 +22,7 @@ func TestMongo(t *testing.T) {
 	}
 	defer client.Disconnect(ctx)
 
-	db := client.Database("DGIS")
+	db := client.Database("dgis-db")
 	collection := db.Collection("users")
 
 
@@ -31,7 +31,7 @@ func TestMongo(t *testing.T) {
 		ID:          primitive.NewObjectID(),
         Login:       "testuser123",
         Password:    "testpassword",
-        Role:        models.User.RoleStarosta,
+        Role:        models.RoleStarosta,
         FullName:    "Тестовый Пользователь",
         Building:    &building,
         PhoneNumber: "+79991234567",

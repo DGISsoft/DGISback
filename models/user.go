@@ -9,18 +9,17 @@ import (
 type UserRole string
 
 const (
-    RoleChairman   UserRole = "Председатель"
-    RoleDGIS       UserRole = "ДГИС"
-    RoleStarosta   UserRole = "Староста"
-    RoleSupervisor UserRole = "Супервайзер"
+    UserRolePredsedatel UserRole = "PREDSEDATEL"
+    UserRoleDgis        UserRole = "DGIS"
+    UserRoleStarosta    UserRole = "STAROSTA"
+    UserRoleSupervisor  UserRole = "SUPERVISOR"
 )
 
-
 var RoleHierarchy = map[UserRole]int{
-    RoleSupervisor: 1, // наименьшие права
-    RoleStarosta:   2,
-    RoleDGIS:       3,
-    RoleChairman:   4, // наибольшие права
+    UserRoleSupervisor: 1,
+    UserRoleStarosta:   2,
+    UserRoleDgis:       3,
+    UserRolePredsedatel:   4,
 }
 
 type User struct {
@@ -52,7 +51,7 @@ func (u *User) HasEqualOrHigherRole(role UserRole) bool {
 
 func (r UserRole) IsValid() bool {
     switch r {
-    case RoleChairman, RoleDGIS, RoleStarosta, RoleSupervisor:
+    case UserRolePredsedatel, UserRoleDgis, UserRoleStarosta, UserRoleSupervisor:
         return true
     default:
         return false

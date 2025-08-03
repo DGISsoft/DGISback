@@ -18,3 +18,28 @@ type User {
   createdAt: Time!
   updatedAt: Time!
 }
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+input LoginInput {
+  login: String!
+  password: String!
+}
+
+type Query {
+  me: User
+  users: [User!]!
+  user(id: ID!): User
+}
+
+type Mutation {
+  login(input: LoginInput!): AuthPayload!
+  logout: Boolean!
+  refreshToken: AuthPayload!
+}
+
+directive @auth on FIELD_DEFINITION
+directive @hasRole(roles: [UserRole!]!) on FIELD_DEFINITION

@@ -2,5 +2,22 @@
 
 package model
 
+import (
+	"github.com/DGISsoft/DGISback/models"
+)
+
+type AuthPayload struct {
+	Token string       `json:"token"`
+	User  *models.User `json:"user"`
+}
+
+type LoginInput struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+type Mutation struct {
+}
+
 type Query struct {
 }

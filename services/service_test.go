@@ -44,7 +44,6 @@ func TestMongo(t *testing.T) {
     assert.NoError(t, err)
     assert.NotNil(t, insertResult.InsertedID)
 
-
 	var insertedUser models.User
     err = collection.FindOne(ctx, primitive.M{"_id": user.ID}).Decode(&insertedUser)
     assert.NoError(t, err)

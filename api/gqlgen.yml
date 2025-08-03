@@ -14,7 +14,7 @@ resolver:
   filename_template: "{name}.resolvers.go"
 call_argument_directives_with_null: true
 autobind:
-  - "github.com/DGISsoft/DGISback/models"
+  - github.com/DGISsoft/DGISback/models
 models:
   ID:
     model:
@@ -34,3 +34,12 @@ models:
   UserRole:
     model:
       - github.com/DGISsoft/DGISback/models.UserRole
+    enum_values:
+      Chairman:
+        value: github.com/DGISsoft/DGISback/models.UserRolePredsedatel
+      DGIS:
+        value: github.com/DGISsoft/DGISback/models.UserRoleDgis
+      Starosta:
+        value: github.com/DGISsoft/DGISback/models.UserRoleStarosta
+      Supervisor:
+        value: github.com/DGISsoft/DGISback/models.UserRoleSupervisor

@@ -1,10 +1,10 @@
 scalar Time
 
 enum UserRole {
-  PREDSEDATEL
+  Chairman
   DGIS
-  STAROSTA
-  SUPERVISOR
+  Starosta
+  Supervisor
 }
 
 type User {

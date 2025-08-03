@@ -1,4 +1,4 @@
-module github.com/DGISsoft/DGISback/services
+module services
 
 go 1.24.0
 

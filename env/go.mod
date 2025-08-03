@@ -1,4 +1,4 @@
-module github.com/DGISsoft/DGISback/env
+module env
 
 go 1.24.0
 

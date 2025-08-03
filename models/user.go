@@ -3,7 +3,6 @@ package models
 import (
 	"fmt"
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -28,7 +27,7 @@ var RoleHierarchy = map[UserRole]int{
 }
 
 type User struct {
-    ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+    ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"` // Исправлено: bson:"_id,omitempty"
     Login        string             `json:"login" bson:"login"`
     Password     string             `json:"-" bson:"password"`
     Role         UserRole           `json:"role" bson:"role"`
@@ -63,21 +62,23 @@ func (r UserRole) IsValid() bool {
     }
 }
 
-func MarshalObjectID(id primitive.ObjectID) graphql.Marshaler {
+type ObjectID = primitive.ObjectID
+
+func MarshalObjectID(id ObjectID) graphql.Marshaler {
 	return graphql.WriterFunc(func(w io.Writer) {
-		_, _ = io.WriteString(w, strconv.Quote(id.Hex()))
+		fmt.Fprintf(w, "\"%s\"", id.Hex())
 	})
 }
 
-func UnmarshalObjectID(v interface{}) (primitive.ObjectID, error) {
+func UnmarshalObjectID(v interface{}) (ObjectID, error) {
 	str, ok := v.(string)
 	if !ok {
-		return primitive.NilObjectID, fmt.Errorf("ObjectID must be a string, got %T", v)
+		return primitive.NilObjectID, fmt.Errorf("ObjectID must be a string")
 	}
-
-	objID, err := primitive.ObjectIDFromHex(str)
-	if err != nil {
-		return primitive.NilObjectID, fmt.Errorf("invalid ObjectID format: %w", err)
-	}
-	return objID, nil
+	return primitive.ObjectIDFromHex(str)
+}
+func MarshalObjectIDScalar(id primitive.ObjectID) graphql.Marshaler {
+	return graphql.WriterFunc(func(w io.Writer) {
+		fmt.Fprintf(w, "\"%s\"", id.Hex())
+	})
 }

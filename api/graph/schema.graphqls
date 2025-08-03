@@ -1,5 +1,4 @@
 scalar Time
-scalar ObjectID
 
 enum UserRole {
   RoleChairman
@@ -9,7 +8,7 @@ enum UserRole {
 }
 
 type User {
-  id: ObjectID!
+  id: ID!
   login: String!
   role: UserRole!
   fullName: String!

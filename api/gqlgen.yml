@@ -1,0 +1,29 @@
+schema:
+  - graph/*.graphqls
+exec:
+  package: graph
+  layout: single-file
+  filename: graph/generated.go
+resolver:
+  package: graph
+  layout: follow-schema
+  dir: graph
+  filename_template: "{name}.resolvers.go"
+call_argument_directives_with_null: true
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int64
+  UUID:
+    model:
+      - github.com/99designs/gqlgen/graphql.UUID
+  Int32:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int32
+  Int64:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int64
+  User:
+    model:
+      - github.com/DGISsoft/DGISback/models.User

@@ -9,36 +9,52 @@ import (
 type UserRole string
 
 const (
-	RoleDGIS       UserRole = "ДГИС"
-	RoleChairman   UserRole = "Председатель"
-	RoleSupervisor UserRole = "Супервайзер"
-	RoleStarosta   UserRole = "Староста"
+    RoleChairman   UserRole = "Председатель"
+    RoleDGIS       UserRole = "ДГИС"
+    RoleStarosta   UserRole = "Староста"
+    RoleSupervisor UserRole = "Супервайзер"
 )
 
-type Campus string
 
-const (
-	CampusNorth Campus = "Северные корпуса"
-	CampusSouth Campus = "Южные корпуса"
-	CampusSmall Campus = "Малый Аякс"
-)
-
-type ControlQA struct {
-	Question string `json:"question" bson:"question"`
-	Answer   string `json:"answer" bson:"answer"`
+var RoleHierarchy = map[UserRole]int{
+    RoleSupervisor: 1, // наименьшие права
+    RoleStarosta:   2,
+    RoleDGIS:       3,
+    RoleChairman:   4, // наибольшие права
 }
 
 type User struct {
-	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Login        string             `json:"login" bson:"login"`
-	Password     string             `json:"-" bson:"password"`
-	Role         UserRole           `json:"role" bson:"role"`
-	FullName     string             `json:"full_name" bson:"full_name"`
-	Campus       Campus             `json:"campus" bson:"campus"`
-	Building     string           `json:"building" bson:"building"`
-	ProfileImage string             `json:"profile_image" bson:"profile_image"`
-	ControlQA    ControlQA          `json:"control_qa" bson:"control_qa"`
-	IsActive     bool               `json:"is_active" bson:"is_active"`
-	CreatedAt    time.Time          `json:"created_at" bson:"created_at"`
-	UpdatedAt    time.Time          `json:"updated_at" bson:"updated_at"`
+    ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+    Login        string             `json:"login" bson:"login"`
+    Password     string             `json:"-" bson:"password"`
+    Role         UserRole           `json:"role" bson:"role"`
+    FullName     string             `json:"full_name" bson:"full_name"`
+    Building     *string            `json:"building,omitempty" bson:"building,omitempty"`
+    PhoneNumber  string             `json:"phone_number" bson:"phone_number"`
+    TelegramTag  string             `json:"telegram_tag" bson:"telegram_tag"`
+    CreatedAt    time.Time          `json:"created_at" bson:"created_at"`
+    UpdatedAt    time.Time          `json:"updated_at" bson:"updated_at"`
+}
+
+
+func (u *User) HasHigherRole(role UserRole) bool {
+    userRoleLevel := RoleHierarchy[u.Role]
+    targetRoleLevel := RoleHierarchy[role]
+    return userRoleLevel > targetRoleLevel
+}
+
+
+func (u *User) HasEqualOrHigherRole(role UserRole) bool {
+    userRoleLevel := RoleHierarchy[u.Role]
+    targetRoleLevel := RoleHierarchy[role]
+    return userRoleLevel >= targetRoleLevel
+}
+
+func (r UserRole) IsValid() bool {
+    switch r {
+    case RoleChairman, RoleDGIS, RoleStarosta, RoleSupervisor:
+        return true
+    default:
+        return false
+    }
 }

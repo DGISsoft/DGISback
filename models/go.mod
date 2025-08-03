@@ -1,4 +1,4 @@
-module models
+module github.com/DGISsoft/DGISback/models
 
 go 1.24.0
 

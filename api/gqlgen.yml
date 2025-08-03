@@ -13,9 +13,6 @@ resolver:
   dir: graph
   filename_template: "{name}.resolvers.go"
 call_argument_directives_with_null: true
-autobind:
-  - github.com/DGISsoft/DGISback/models
-  - "go.mongodb.org/mongo-driver/bson/primitive"
 models:
   ID:
     model:

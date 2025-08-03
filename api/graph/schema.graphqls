@@ -1,3 +1,10 @@
+enum UserRole {
+  RoleChairman
+  RoleDGIS
+  RoleStarosta
+  RoleSupervisor
+}
+
 type User {
   id: ID!
   login: String!
@@ -8,30 +15,4 @@ type User {
   telegramTag: String!
   createdAt: String!
   updatedAt: String!
-}
-
-enum UserRole {
-  Predsedatel
-  Dgis
-  Starosta
-  Supervisor
-}
-
-input UserInput {
-  login: String!
-  password: String!
-  role: UserRole!
-  fullName: String!
-  building: String
-  phoneNumber: String!
-  telegramTag: String!
-}
-
-input UserUpdateInput {
-  login: String
-  role: UserRole
-  fullName: String
-  building: String
-  phoneNumber: String
-  telegramTag: String
 }

@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/99designs/gqlgen v0.17.78
 	github.com/DGISsoft/DGISback/models v0.0.0-20250803090653-5af13a94d94d
+	github.com/DGISsoft/DGISback/services/mongo v0.0.0-20250716070918-7761118f142c
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/rs/cors v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.30
@@ -12,7 +13,6 @@ require (
 )
 
 require (
-	github.com/DGISsoft/DGISback/services/mongo v0.0.0-20250716070918-7761118f142c // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect

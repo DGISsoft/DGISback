@@ -15,9 +15,6 @@ import (
 
 // UserService сервис для работы с пользователями.
 // Встраивает MongoService для доступа к базе данных.
-type UserService struct {
-    *MongoService
-}
 
 // NewUserService создает новый сервис для работы с пользователями.
 func NewUserService(mongoService *MongoService) *UserService {

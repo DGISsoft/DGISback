@@ -19,6 +19,17 @@ type User {
   updatedAt: Time!
 }
 
+input CreateUserInput {
+  login: String!
+  password: String! # Принимаем plaintext пароль
+  role: UserRole!
+  fullName: String!
+  building: String
+  phoneNumber: String!
+  telegramTag: String!
+  # createdAt и updatedAt обычно устанавливаются сервером
+}
+
 type AuthPayload {
   token: String!
   user: User!
@@ -39,6 +50,7 @@ type Mutation {
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   refreshToken: AuthPayload!
+  createUser(input: CreateUserInput!): User!
 }
 
 directive @auth on FIELD_DEFINITION

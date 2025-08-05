@@ -11,6 +11,16 @@ type AuthPayload struct {
 	User  *models.User `json:"user"`
 }
 
+type CreateUserInput struct {
+	Login       string          `json:"login"`
+	Password    string          `json:"password"`
+	Role        models.UserRole `json:"role"`
+	FullName    string          `json:"fullName"`
+	Building    *string         `json:"building,omitempty"`
+	PhoneNumber string          `json:"phoneNumber"`
+	TelegramTag string          `json:"telegramTag"`
+}
+
 type LoginInput struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`

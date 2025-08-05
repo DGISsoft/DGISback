@@ -13,9 +13,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// UserService сервис для работы с пользователями.
-// Встраивает MongoService для доступа к базе данных.
-
 // NewUserService создает новый сервис для работы с пользователями.
 func NewUserService(mongoService *MongoService) *UserService {
     return &UserService{MongoService: mongoService}

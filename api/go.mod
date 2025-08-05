@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/99designs/gqlgen v0.17.78
 	github.com/DGISsoft/DGISback/models v0.0.0-20250803090653-5af13a94d94d
+	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/rs/cors v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.30
 	go.mongodb.org/mongo-driver v1.17.4

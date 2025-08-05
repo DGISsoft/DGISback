@@ -67,3 +67,4 @@ func Aggregate[T any](ctx context.Context, collection *mongo.Collection, pipelin
 	
 	return cursor.All(ctx, results)
 }
+

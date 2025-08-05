@@ -7,7 +7,9 @@ package graph
 import (
 	"context"
 	"fmt"
+	"log"
 
+	"github.com/DGISsoft/DGISback/api/auth"
 	"github.com/DGISsoft/DGISback/api/graph/model"
 	"github.com/DGISsoft/DGISback/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,8 +17,35 @@ import (
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: Login - login"))
+	    // 1. Получить пользователя по логину через UserService
+    user, err := r.UserService.GetUserByLogin(ctx, input.Login)
+    if err != nil {
+        // Можно вернуть более общую ошибку для безопасности
+        return nil, fmt.Errorf("invalid credentials")
+    }
+
+    // 2. Проверить пароль
+    if !r.UserService.CheckPassword(user.Password, input.Password) {
+        return nil, fmt.Errorf("invalid credentials")
+    }
+
+    // 3. Создать JWTManager (используя ключ и длительность из env или дефолтные)
+    jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
+
+    // 4. Сгенерировать токен
+    tokenString, err := jwtManager.GenerateToken(user)
+    if err != nil {
+        log.Printf("Failed to generate token for user %s: %v", user.Login, err)
+        return nil, fmt.Errorf("could not generate token")
+    }
+
+    // 5. Вернуть AuthPayload
+    return &model.AuthPayload{
+        Token: tokenString,
+        User:  user, // Предполагается, что модель User в GraphQL совместима с models.User
+    }, nil
 }
+
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {

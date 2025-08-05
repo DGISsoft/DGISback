@@ -1,9 +1,11 @@
 github.com/99designs/gqlgen v0.17.78 h1:bhIi7ynrc3js2O8wu1sMQj1YHPENDt3jQGyifoBvoVI=
 github.com/99designs/gqlgen v0.17.78/go.mod h1:yI/o31IauG2kX0IsskM4R894OCCG1jXJORhtLQqB7Oc=
+github.com/DGISsoft/DGISback/middleware v0.0.0-20250805091632-a9beb4b587fb h1:yM0gwe8xDgdnozWP9H3lYV7DBPFKHk5QjebBoNX+2h4=
+github.com/DGISsoft/DGISback/middleware v0.0.0-20250805091632-a9beb4b587fb/go.mod h1:KdEGfmDulGlTugtlRRqRNIryx1TwqTFPrLyOqXdWZVo=
 github.com/DGISsoft/DGISback/models v0.0.0-20250805090457-cdff0bec3a6c h1:RXcWGAKFsXDjPxqNcXk4qchw4cQ5/rapcDq5AWJnjWw=
 github.com/DGISsoft/DGISback/models v0.0.0-20250805090457-cdff0bec3a6c/go.mod h1:jderw3FvWiGqRsh28dl2QX2CxZ7AYree4Gdf4NouF5w=
-github.com/DGISsoft/DGISback/services/mongo v0.0.0-20250716070918-7761118f142c h1:+lIDc5SeuCpLHDYO8JjHdcNt/dzAFXlVQoXzXndS1L0=
-github.com/DGISsoft/DGISback/services/mongo v0.0.0-20250716070918-7761118f142c/go.mod h1:UTFFi0Cv6d3zesDBTZZ4Bsvy+8wrPCqiA9n6MmKC2qo=
+github.com/DGISsoft/DGISback/services v0.0.0-20250805090457-cdff0bec3a6c h1:FO+IVNaoFRKmEx/RDa4CI8Y2Zs2IATGjxDb3fZhKctk=
+github.com/DGISsoft/DGISback/services v0.0.0-20250805090457-cdff0bec3a6c/go.mod h1:EyLyahCNAokDrqeLQg42NNoKKid/yyiQM3Q07HBxZ0s=
 github.com/PuerkitoBio/goquery v1.10.3 h1:pFYcNSqHxBD06Fpj/KsbStFRsgRATgnf3LeXiUkhzPo=
 github.com/PuerkitoBio/goquery v1.10.3/go.mod h1:tMUX0zDMHXYlAQk6p35XxQMqMweEKB7iK7iLNd4RH4Y=
 github.com/agnivade/levenshtein v1.2.1 h1:EHBY3UOn1gwdy/VbFwgo4cxecRznFk7fKWN1KOX7eoM=

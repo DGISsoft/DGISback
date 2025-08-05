@@ -3,9 +3,6 @@ package mongo
 import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
-type UserService struct {
-    *MongoService
-}
 
 type MongoService struct {
 	db *mongo.Database

@@ -13,6 +13,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type UserService struct {
+    *MongoService
+}
 // NewUserService создает новый сервис для работы с пользователями.
 func NewUserService(mongoService *MongoService) *UserService {
     return &UserService{MongoService: mongoService}

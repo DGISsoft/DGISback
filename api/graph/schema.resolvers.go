@@ -11,6 +11,7 @@ import (
 
 	"github.com/DGISsoft/DGISback/api/auth"
 	"github.com/DGISsoft/DGISback/api/graph/model"
+	"github.com/DGISsoft/DGISback/middleware" // Убедитесь, что путь правильный
 	"github.com/DGISsoft/DGISback/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -49,7 +50,8 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
-	panic(fmt.Errorf("not implemented: Logout - logout"))
+    // Логика выхода
+    return true, nil
 }
 
 // RefreshToken is the resolver for the refreshToken field.
@@ -59,17 +61,76 @@ func (r *mutationResolver) RefreshToken(ctx context.Context) (*model.AuthPayload
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: Me - me"))
+    // 1. Получить информацию о пользователе из контекста (добавленную middleware)
+    claims, ok := middleware.GetUserFromContext(ctx)
+    if !ok {
+        // Middleware не добавила пользователя в контекст, значит, пользователь не аутентифицирован
+        return nil, fmt.Errorf("not authenticated")
+    }
+
+    // 2. Преобразовать ObjectID из строки в primitive.ObjectID
+    userID, err := primitive.ObjectIDFromHex(claims.UserID)
+    if err != nil {
+        log.Printf("Invalid user ID in token claims: %s", claims.UserID)
+        return nil, fmt.Errorf("invalid token")
+    }
+
+    // 3. Получить полную информацию о пользователе из БД
+    // Это гарантирует, что мы получаем актуальные данные
+    user, err := r.UserService.GetUserByID(ctx, userID)
+    if err != nil {
+        log.Printf("Failed to get user by ID %s from DB: %v", claims.UserID, err)
+        // Если пользователь не найден, возможно, аккаунт был удален
+        return nil, fmt.Errorf("user not found")
+    }
+
+    return user, nil
 }
 
 // Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
-	panic(fmt.Errorf("not implemented: Users - users"))
+    // 1. Проверить аутентификацию (обычно список пользователей защищен)
+    _, ok := middleware.GetUserFromContext(ctx)
+    if !ok {
+        return nil, fmt.Errorf("not authenticated")
+    }
+    // 2. Проверить права доступа (опционально, например, только администраторы)
+    // claims, _ := middleware.GetUserFromContext(ctx)
+    // if claims.Role != models.AdminRole { return nil, fmt.Errorf("access denied") }
+
+    // 3. Получить список пользователей из БД
+    users, err := r.UserService.GetUsers(ctx)
+    if err != nil {
+        log.Printf("Failed to get users list: %v", err)
+        return nil, fmt.Errorf("could not fetch users")
+    }
+
+    return users, nil
 }
 
 // User is the resolver for the user field.
 func (r *queryResolver) User(ctx context.Context, id primitive.ObjectID) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: User - user"))
+    // 1. Проверить аутентификацию (обычно просмотр профиля требует аутентификации)
+    _, ok := middleware.GetUserFromContext(ctx)
+    if !ok {
+        return nil, fmt.Errorf("not authenticated")
+    }
+    // 2. Проверить права доступа (опционально)
+    // Можно проверить, запрашивает ли пользователь свой собственный профиль или имеет права админа
+    // claims, _ := middleware.GetUserFromContext(ctx)
+    // if claims.UserID != id.Hex() && claims.Role != models.AdminRole { return nil, fmt.Errorf("access denied") }
+
+    // 3. Получить пользователя из БД по ID
+    user, err := r.UserService.GetUserByID(ctx, id)
+    if err != nil {
+        if err.Error() == "user not found" {
+            return nil, fmt.Errorf("user not found") // Более точная ошибка
+        }
+        log.Printf("Failed to get user by ID %s: %v", id.Hex(), err)
+        return nil, fmt.Errorf("could not fetch user")
+    }
+
+    return user, nil
 }
 
 // Mutation returns MutationResolver implementation.

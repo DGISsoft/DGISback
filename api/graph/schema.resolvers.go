@@ -22,12 +22,12 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
     user, err := r.UserService.GetUserByLogin(ctx, input.Login)
     if err != nil {
         // Можно вернуть более общую ошибку для безопасности
-        return nil, fmt.Errorf("invalid credentials")
+        return nil, fmt.Errorf("invalid")
     }
 
     // 2. Проверить пароль
     if !r.UserService.CheckPassword(user.Password, input.Password) {
-        return nil, fmt.Errorf("invalid credentials")
+        return nil, fmt.Errorf("invalids")
     }
 
     // 3. Создать JWTManager (используя ключ и длительность из env или дефолтные)

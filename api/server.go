@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -11,8 +12,11 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/DGISsoft/DGISback/api/graph"
+	serv "github.com/DGISsoft/DGISback/services/mongo"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 
@@ -25,6 +29,25 @@ func main() {
 	// if err != nil {
 	// 	log.Fatalf("Invalid REDIS_DB value: %v", err)
 	// }
+    client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017")) // Ваш URI
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Disconnect(context.TODO()) // Не забудьте defer
+
+    // 2. Получение базы данных
+    database := client.Database("dgis-db") // Ваше имя БД
+
+    // 3. Создание MongoService
+    mongoService := serv.New(database) // <-- ВАЖНО: Передаем *mongo.Database
+
+    // 4. Создание UserService, передавая ему MongoService
+    userService := serv.NewUserService(mongoService) // <-- ВАЖНО: Передаем *MongoService
+
+    // 5. Создание Resolver с UserService
+    resolver := &graph.Resolver{
+        UserService: userService, // <-- ВАЖНО: Передаем *UserService
+    }
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
@@ -37,7 +60,7 @@ func main() {
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 	})
 
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
+	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})

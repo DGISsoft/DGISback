@@ -110,7 +110,6 @@ func GetTokenDuration() time.Duration {
 		if d, err := time.ParseDuration(durationStr); err == nil {
 			duration = d
 		}
-	}
-	
+	}	
 	return duration
 }

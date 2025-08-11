@@ -15,19 +15,43 @@ type User {
   building: String
   phoneNumber: String!
   telegramTag: String!
+  markers: [Marker!]! # Назначенные маркеры
   createdAt: Time!
   updatedAt: Time!
 }
 
+type Marker {
+  id: ID!
+  markerId: String!
+  position: [Float!]!
+  label: String!
+  users: [User!]! # Назначенные пользователи
+}
+
 input CreateUserInput {
   login: String!
-  password: String! # Принимаем plaintext пароль
+  password: String!
   role: UserRole!
   fullName: String!
   building: String
   phoneNumber: String!
   telegramTag: String!
-  # createdAt и updatedAt обычно устанавливаются сервером
+}
+
+input CreateMarkerInput {
+  markerId: String!
+  position: [Float!]!
+  label: String!
+}
+
+input AssignUserInput {
+  userId: ID!
+  markerId: ID!
+}
+
+input RemoveUserInput {
+  userId: ID!
+  markerId: ID!
 }
 
 type AuthPayload {
@@ -44,13 +68,26 @@ type Query {
   me: User
   users: [User!]!
   user(id: ID!): User
+  allMarkers: [Marker!]!
+  marker(id: ID!): Marker
+  markerByCode(code: String!): Marker
+  dashboard: [Marker!]!
 }
 
 type Mutation {
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   refreshToken: AuthPayload!
-  createUser(input: CreateUserInput!): User!
+  register(input: CreateUserInput!): User!
+  addMarker(input: CreateMarkerInput!): Marker!
+
+  # Работа с назначениями
+  assignUser(input: AssignUserInput!): Marker!
+  removeUser(input: RemoveUserInput!): Marker!
+
+  # Массовые операции
+  assignMany(markerId: ID!, userIds: [ID!]!): Marker!
+  clearMarker(markerId: ID!): Marker!
 }
 
 directive @auth on FIELD_DEFINITION

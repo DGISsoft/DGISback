@@ -31,6 +31,7 @@ type User struct {
     Building     *string            `json:"building,omitempty" bson:"building,omitempty"`
     PhoneNumber  string             `json:"phone_number" bson:"phone_number"`
     TelegramTag  string             `json:"telegram_tag" bson:"telegram_tag"`
+    Markers     []primitive.ObjectID `bson:"assignedMarkers" json:"markers"`
     CreatedAt    time.Time          `json:"created_at" bson:"created_at"`
     UpdatedAt    time.Time          `json:"updated_at" bson:"updated_at"`
 }
@@ -58,3 +59,10 @@ func (r UserRole) IsValid() bool {
     }
 }
 
+type Marker struct {
+    ID           primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
+    MarkerID     string               `bson:"markerId" json:"markerId"`
+    Position     []float64            `bson:"position" json:"position"`
+    Label        string               `bson:"label" json:"label"`
+    Users        []primitive.ObjectID `bson:"assignedUserIds" json:"users"`
+}

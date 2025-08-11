@@ -34,3 +34,9 @@ models:
   UserRole:
     model:
       - github.com/DGISsoft/DGISback/models.UserRole
+  Float:
+    model:
+      - github.com/99designs/gqlgen/graphql.Float
+  Marker:
+    model:
+      - github.com/DGISsoft/DGISback/models.Marker

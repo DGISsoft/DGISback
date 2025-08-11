@@ -7,4 +7,5 @@ import "github.com/DGISsoft/DGISback/services/mongo"
 // It serves as dependency injection for your app, add any dependencies you require here.
 type Resolver struct{
 	UserService *mongo.UserService
+	MarkerService *mongo.MarkerService
 }

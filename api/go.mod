@@ -5,25 +5,16 @@ go 1.24.0
 require (
 	github.com/99designs/gqlgen v0.17.78
 	github.com/DGISsoft/DGISback/middleware v0.0.0-20250805091632-a9beb4b587fb
-	github.com/DGISsoft/DGISback/models v0.0.0-20250805090457-cdff0bec3a6c
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/rs/cors v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.30
 	go.mongodb.org/mongo-driver v1.17.4
 )
 
-require (
-	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/urfave/cli/v2 v2.27.7 // indirect
-	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	golang.org/x/mod v0.26.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
+require github.com/DGISsoft/DGISback/models v0.0.0-20250811093754-5671dfa55a42
 
 require (
-	github.com/DGISsoft/DGISback/services v0.0.0-20250805090457-cdff0bec3a6c
+	github.com/DGISsoft/DGISback/services v0.0.0-20250805123623-3127f3a48801 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect

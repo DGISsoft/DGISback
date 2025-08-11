@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/DGISsoft/DGISback/api/auth"
 	"github.com/DGISsoft/DGISback/api/graph/model"
@@ -16,6 +15,11 @@ import (
 	"github.com/DGISsoft/DGISback/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+// Users is the resolver for the users field.
+func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*models.User, error) {
+	panic(fmt.Errorf("not implemented: Users - users"))
+}
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
@@ -59,54 +63,34 @@ func (r *mutationResolver) RefreshToken(ctx context.Context) (*model.AuthPayload
 	panic(fmt.Errorf("not implemented: RefreshToken - refreshToken"))
 }
 
-func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*models.User, error) {
-    // 1. Проверить аутентификацию (создание пользователя обычно требует аутентификации)
-    // Используем "_" для игнорирования значения claims, если оно не нужно для дальнейшей логики
-    // но нам нужно убедиться, что контекст содержит информацию о пользователе.
-    _, ok := middleware.GetUserFromContext(ctx)
-    if !ok {
-        return nil, fmt.Errorf("not authenticated")
-    }
-    // 2. Проверить права доступа (опционально, например, только определенные роли могут создавать пользователей)
-    // Если раскомментировать, то переменная claims понадобится:
-    // claims, ok := middleware.GetUserFromContext(ctx)
-    // if !ok {
-    // 	return nil, fmt.Errorf("not authenticated")
-    // }
-    // if claims.Role != models.PredsedatelRole && claims.Role != models.SupervisorRole {
-    // 	return nil, fmt.Errorf("access denied: insufficient permissions to create users")
-    // }
+// Register is the resolver for the register field.
+func (r *mutationResolver) Register(ctx context.Context, input model.CreateUserInput) (*models.User, error) {
+	panic(fmt.Errorf("not implemented: Register - register"))
+}
 
-    // 3. Подготовить структуру models.User из входных данных
-    // ВАЖНО: Убедитесь, что временные метки установлены. Обычно CreatedAt устанавливается до вызова CreateUser.
-    now := time.Now()
-    newUser := &models.User{
-        Login:       input.Login,
-        Password:    input.Password, // Передаем plaintext пароль, хэширование произойдет в UserService.CreateUser
-        Role:        input.Role,
-        FullName:    input.FullName,
-        Building:    input.Building,
-        PhoneNumber: input.PhoneNumber,
-        TelegramTag: input.TelegramTag,
-        CreatedAt:   now,
-        UpdatedAt:   now, // Изначально UpdatedAt равен CreatedAt
-        // ID будет сгенерирован MongoDB при InsertOne
-    }
+// AddMarker is the resolver for the addMarker field.
+func (r *mutationResolver) AddMarker(ctx context.Context, input model.CreateMarkerInput) (*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: AddMarker - addMarker"))
+}
 
-    // 4. Вызвать UserService для создания пользователя
-    // UserService.CreateUser автоматически хэширует пароль
-    err := r.UserService.CreateUser(ctx, newUser)
-    if err != nil {
-        log.Printf("Failed to create user %s: %v", input.Login, err)
-        // Можно возвращать более общую ошибку для безопасности
-        // return nil, fmt.Errorf("could not create user")
-        // Или возвращать конкретную ошибку, если это приемлемо (например, "login already exists")
-        return nil, fmt.Errorf("failed to create user: %w", err)
-    }
+// AssignUser is the resolver for the assignUser field.
+func (r *mutationResolver) AssignUser(ctx context.Context, input model.AssignUserInput) (*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: AssignUser - assignUser"))
+}
 
-    // 5. Вернуть созданного пользователя
-    // newUser теперь должен содержать сгенерированный ID
-    return newUser, nil
+// RemoveUser is the resolver for the removeUser field.
+func (r *mutationResolver) RemoveUser(ctx context.Context, input model.RemoveUserInput) (*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: RemoveUser - removeUser"))
+}
+
+// AssignMany is the resolver for the assignMany field.
+func (r *mutationResolver) AssignMany(ctx context.Context, markerID primitive.ObjectID, userIds []primitive.ObjectID) (*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: AssignMany - assignMany"))
+}
+
+// ClearMarker is the resolver for the clearMarker field.
+func (r *mutationResolver) ClearMarker(ctx context.Context, markerID primitive.ObjectID) (*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: ClearMarker - clearMarker"))
 }
 
 // Me is the resolver for the me field.
@@ -183,11 +167,102 @@ func (r *queryResolver) User(ctx context.Context, id primitive.ObjectID) (*model
 	return user, nil
 }
 
+// AllMarkers is the resolver for the allMarkers field.
+func (r *queryResolver) AllMarkers(ctx context.Context) ([]*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: AllMarkers - allMarkers"))
+}
+
+// Marker is the resolver for the marker field.
+func (r *queryResolver) Marker(ctx context.Context, id primitive.ObjectID) (*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: Marker - marker"))
+}
+
+// MarkerByCode is the resolver for the markerByCode field.
+func (r *queryResolver) MarkerByCode(ctx context.Context, code string) (*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: MarkerByCode - markerByCode"))
+}
+
+// Dashboard is the resolver for the dashboard field.
+func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: Dashboard - dashboard"))
+}
+
+// Markers is the resolver for the markers field.
+func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error) {
+	panic(fmt.Errorf("not implemented: Markers - markers"))
+}
+
+// Marker returns MarkerResolver implementation.
+func (r *Resolver) Marker() MarkerResolver { return &markerResolver{r} }
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// User returns UserResolver implementation.
+func (r *Resolver) User() UserResolver { return &userResolver{r} }
+
+type markerResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*models.User, error) {
+    // 1. Проверить аутентификацию (создание пользователя обычно требует аутентификации)
+    // Используем "_" для игнорирования значения claims, если оно не нужно для дальнейшей логики
+    // но нам нужно убедиться, что контекст содержит информацию о пользователе.
+    _, ok := middleware.GetUserFromContext(ctx)
+    if !ok {
+        return nil, fmt.Errorf("not authenticated")
+    }
+    // 2. Проверить права доступа (опционально, например, только определенные роли могут создавать пользователей)
+    // Если раскомментировать, то переменная claims понадобится:
+    // claims, ok := middleware.GetUserFromContext(ctx)
+    // if !ok {
+    // 	return nil, fmt.Errorf("not authenticated")
+    // }
+    // if claims.Role != models.PredsedatelRole && claims.Role != models.SupervisorRole {
+    // 	return nil, fmt.Errorf("access denied: insufficient permissions to create users")
+    // }
+
+    // 3. Подготовить структуру models.User из входных данных
+    // ВАЖНО: Убедитесь, что временные метки установлены. Обычно CreatedAt устанавливается до вызова CreateUser.
+    now := time.Now()
+    newUser := &models.User{
+        Login:       input.Login,
+        Password:    input.Password, // Передаем plaintext пароль, хэширование произойдет в UserService.CreateUser
+        Role:        input.Role,
+        FullName:    input.FullName,
+        Building:    input.Building,
+        PhoneNumber: input.PhoneNumber,
+        TelegramTag: input.TelegramTag,
+        CreatedAt:   now,
+        UpdatedAt:   now, // Изначально UpdatedAt равен CreatedAt
+        // ID будет сгенерирован MongoDB при InsertOne
+    }
+
+    // 4. Вызвать UserService для создания пользователя
+    // UserService.CreateUser автоматически хэширует пароль
+    err := r.UserService.CreateUser(ctx, newUser)
+    if err != nil {
+        log.Printf("Failed to create user %s: %v", input.Login, err)
+        // Можно возвращать более общую ошибку для безопасности
+        // return nil, fmt.Errorf("could not create user")
+        // Или возвращать конкретную ошибку, если это приемлемо (например, "login already exists")
+        return nil, fmt.Errorf("failed to create user: %w", err)
+    }
+
+    // 5. Вернуть созданного пользователя
+    // newUser теперь должен содержать сгенерированный ID
+    return newUser, nil
+}
+*/

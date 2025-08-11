@@ -4,11 +4,23 @@ package model
 
 import (
 	"github.com/DGISsoft/DGISback/models"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+type AssignUserInput struct {
+	UserID   primitive.ObjectID `json:"userId"`
+	MarkerID primitive.ObjectID `json:"markerId"`
+}
 
 type AuthPayload struct {
 	Token string       `json:"token"`
 	User  *models.User `json:"user"`
+}
+
+type CreateMarkerInput struct {
+	MarkerID string    `json:"markerId"`
+	Position []float64 `json:"position"`
+	Label    string    `json:"label"`
 }
 
 type CreateUserInput struct {
@@ -30,4 +42,9 @@ type Mutation struct {
 }
 
 type Query struct {
+}
+
+type RemoveUserInput struct {
+	UserID   primitive.ObjectID `json:"userId"`
+	MarkerID primitive.ObjectID `json:"markerId"`
 }

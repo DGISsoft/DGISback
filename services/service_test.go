@@ -31,7 +31,7 @@ func TestMongo(t *testing.T) {
 		ID:          primitive.NewObjectID(),
         Login:       "testuser123",
         Password:    "testpassword",
-        Role:        models.RoleStarosta,
+        Role:        models.UserRoleStarosta,
         FullName:    "Тестовый Пользователь",
         Building:    &building,
         PhoneNumber: "+79991234567",

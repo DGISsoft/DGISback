@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/DGISsoft/DGISback/api/auth"
 )
@@ -152,9 +153,10 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				Value:    "",
 				Path:     "/",
 				HttpOnly: true,
-				Secure:   false, // Установите true в production при использовании HTTPS
-				SameSite: http.SameSiteStrictMode, // Или Lax, в зависимости от требований
-				MaxAge:   -1, // Удаляет cookie
+				Secure:   false,
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   -1,
+				Domain:   "localhost",
 			})
 		} else if finalAuthCtx.ShouldSetCookie && finalAuthCtx.TokenToSet != "" {
 			log.Printf("AuthMiddleware: [10] Setting auth cookie, token length: %d", len(finalAuthCtx.TokenToSet)) // Лог
@@ -163,10 +165,11 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				Value:    finalAuthCtx.TokenToSet,
 				Path:     "/",
 				HttpOnly: true,
-				Secure:   false, // Установите true в production при использовании HTTPS
-				SameSite: http.SameSiteStrictMode, // Или Lax
+				Secure:   false,
+				SameSite: http.SameSiteLaxMode,
+				Domain:   "localhost",
 				MaxAge:   int(auth.GetTokenDuration().Seconds()),
-				// Expires:  time.Now().Add(auth.GetTokenDuration()),
+				Expires:  time.Now().Add(auth.GetTokenDuration()),
 			})
 		} else {
 			log.Println("AuthMiddleware: [10] No cookie action needed after request") // Лог

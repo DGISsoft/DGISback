@@ -87,7 +87,7 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 	// Токен в cookie, но можно оставить его и в ответе для API/отладки
 	log.Println("Login resolver finished successfully") // <-- Лог
 	return &model.AuthPayload{
-		Token: "", // Основная аутентификация через cookie, можно вернуть "" или токен
+		Token: tokenString, // Отдаем токен и в теле ответа для дебага
 		User:  user,
 	}, nil
 }

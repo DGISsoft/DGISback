@@ -11,7 +11,6 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/DGISsoft/DGISback/api/graph"
 	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models" // Импортируем models
@@ -108,15 +107,13 @@ func main() {
 
     c := cors.New(cors.Options{
         // ВАЖНО: Замените "*" на конкретный origin вашего фронтенда в production
-        // Например: []string{"http://localhost:3000", "https://yourdomain.com"}
+        AllowedOrigins: []string{"http://localhost:5173"},
+        AllowCredentials: true,
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+        AllowedHeaders: []string{"Authorization", "Content-Type"},
         // Использование "*" с AllowCredentials = true запрещено спецификацией CORS
-        AllowedOrigins: []string{"http://localhost:5173"}, // <-- В production изменить!
-        // Разрешаем отправку credentials (cookies)
-        AllowCredentials: true, // <-- ВАЖНО: Установить true
-        // Можно оставить "*" для заголовков и методов при AllowCredentials=true, 
-        // но лучше указать конкретные, если возможно
-        AllowedHeaders: []string{"*"}, 
-        AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+
+
     })
     srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
@@ -131,7 +128,7 @@ func main() {
         Cache: lru.New[string](100),
     })
     muxGraphql := http.NewServeMux()
-    muxGraphql.Handle("/", playground.Handler("GraphQL playground", "/query"))
+
 	muxGraphql.Handle("/query", c.Handler(middleware.AuthMiddleware(srv)))
 
     log.Printf("Starting GraphQL server on :%s", port)

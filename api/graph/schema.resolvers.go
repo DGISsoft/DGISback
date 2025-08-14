@@ -13,12 +13,32 @@ import (
 	"github.com/DGISsoft/DGISback/api/graph/model"
 	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models"
+	"github.com/DGISsoft/DGISback/services/mongo/query"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Users is the resolver for the users field.
 func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*models.User, error) {
-	panic(fmt.Errorf("not implemented: Users - users"))
+    // Если список ID пуст, возвращаем пустой срез
+    if len(obj.Users) == 0 {
+        return []*models.User{}, nil
+    }
+
+    // Создаем фильтр для поиска пользователей по списку ID
+    filter := bson.M{"_id": bson.M{"$in": obj.Users}}
+
+    collection := r.UserService.GetCollection("users") // Предполагаем доступ к коллекции
+    var users []*models.User
+
+    // Выполняем запрос
+    err := query.FindMany(ctx, collection, filter, &users)
+    if err != nil {
+        log.Printf("markerResolver.Users: Failed to get users for marker %s: %v", obj.ID.Hex(), err)
+        return nil, fmt.Errorf("could not load users for marker")
+    }
+
+    return users, nil
 }
 
 // Login is the resolver for the login field.
@@ -194,25 +214,19 @@ func (r *queryResolver) MarkerByCode(ctx context.Context, code string) (*models.
 
 // Dashboard is the resolver for the dashboard field.
 func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error) {
-	// 1. (Опционально) Проверить аутентификацию, если это требуется по логике приложения
-	// Хотя по вашему описанию это просто "получение всех", проверка может быть полезна.
-	// _, isAuthenticated := middleware.GetUserFromContext(ctx)
-	// if !isAuthenticated {
-	// 	return nil, fmt.Errorf("unauthorized: authentication required")
-	// }
-	// Для этого примера оставим без проверки, как вы сказали "просто все маркеры"
-
-	// 2. Вызвать сервис для получения всех маркеров
-	// Используем GetAllMarkers. Если нужны пользователи внутри маркеров,
-	// используйте GetAllMarkersWithUsers.
-	markers, err := r.MarkerService.GetAllMarkers(ctx) // Используем ctx
+	// 1. Получить ВСЕ маркеры из базы данных ВМЕСТЕ С НАЗНАЧЕННЫМИ ПОЛЬЗОВАТЕЛЯМИ
+	// Используем метод из вашего MarkerService, который делает $lookup
+	// Это один агрегационный запрос к БД
+	markers, err := r.MarkerService.GetAllMarkersWithUsers(ctx) // <-- Изменено здесь
 	if err != nil {
-		log.Printf("Dashboard: Failed to get all markers: %v", err)
-		return nil, fmt.Errorf("could not fetch dashboard data")
+		// Ошибка на стороне сервера при доступе к БД
+		log.Printf("Dashboard: Failed to retrieve all markers with users from DB: %v", err)
+		return nil, fmt.Errorf("could not load dashboard data")
 	}
 
-	// 3. Вернуть список маркеров
-	// Предполагаем, что []*models.Marker совместим с []*model.Marker в GraphQL
+	// 2. Вернуть список маркеров
+	// []*models.Marker (с заполненным полем .Users) должно быть совместимо
+	// с []*model.Marker в GraphQL-схеме
 	return markers, nil
 }
 

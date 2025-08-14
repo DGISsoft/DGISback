@@ -64,5 +64,5 @@ type Marker struct {
     MarkerID     string               `bson:"markerId" json:"markerId"`
     Position     []float64            `bson:"position" json:"position"`
     Label        string               `bson:"label" json:"label"`
-    Users        []primitive.ObjectID `bson:"assignedUserIds" json:"users"`
+    Users        []primitive.ObjectID `bson:"users" json:"users"`
 }

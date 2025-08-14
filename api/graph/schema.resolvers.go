@@ -44,24 +44,19 @@ func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*mode
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
 	// 1. Найти пользователя по логину
-	// Используем метод из вашего UserService
 	user, err := r.UserService.GetUserByLogin(ctx, input.Login)
 	if err != nil {
-		// Не раскрываем детали (например, "пользователь не найден")
-		log.Printf("Login: Authentication failed for login %s: %v", input.Login, err) // Лог для администратора
+		log.Printf("Login: Authentication failed for login %s: %v", input.Login, err)
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	// 2. Проверить пароль
-	// Используем статический метод CheckPassword из вашего UserService
 	if !r.UserService.CheckPassword(user.Password, input.Password) {
-		log.Printf("Login: Invalid password provided for user %s", input.Login) // Лог для администратора
+		log.Printf("Login: Invalid password provided for user %s", input.Login)
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	// 3. Сгенерировать JWT токен
-	// Поскольку метода GenerateToken в вашем UserService нет,
-	// генерируем токен напрямую с помощью auth пакета
 	jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
 	tokenString, err := jwtManager.GenerateToken(user)
 	if err != nil {
@@ -70,46 +65,40 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 	}
 
 	// 4. Подготовить ответ
-	// Предполагаем, что *models.User напрямую совместим с GraphQL-типом User
 	authPayload := &model.AuthPayload{
-		Token: tokenString, // Токен возвращается в ответе (для API-доступа, если нужно)
-		User:  user,        // Информация о пользователе
+		Token: tokenString,
+		User:  user,
 	}
 
-	// 5. Сигнализировать middleware об установке HttpOnly cookie
-	// ВАЖНО: Передаем ctx из аргументов резолвера.
-	// Этот ctx прошел через AuthMiddleware и содержит AuthContext.
-	err = middleware.SignalSetAuthCookie(ctx, tokenString)
+	// 5. НЕМЕДЛЕННО установить cookie
+	// Получаем ResponseWriter из контекста
+	writer, err := middleware.GetResponseWriterFromContext(ctx)
 	if err != nil {
-		// Это критическая ошибка, так как middleware не сможет установить cookie
-		log.Printf("Login: CRITICAL - Failed to signal SetAuthCookie for user %s: %v", user.Login, err)
-		// Можно вернуть ошибку клиенту или продолжить (токен в payload есть)
-		// Возвращаем ошибку, так как процесс аутентификации не завершен корректно
-		return nil, fmt.Errorf("authentication process failed (token generated, but cookie could not be set)")
+		log.Printf("Login: CRITICAL - Could not get ResponseWriter from context: %v", err)
+		// Это критическая ошибка
+		return nil, fmt.Errorf("internal error (token generated, but could not set cookie)")
 	}
+	// Устанавливаем cookie напрямую
+	middleware.SignalSetAuthCookieDirect(writer, tokenString)
 
 	// 6. Вернуть AuthPayload
-	// GraphQL-ответ будет содержать токен и информацию о пользователе.
-	// Cookie будет установлена браузером после получения ответа (если SignalSetAuthCookie сработал).
+	// Токен возвращается в теле ответа (для API/доп. сценариев)
+	// Cookie уже установлена.
 	return authPayload, nil
 }
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
-	// 1. Сигнализировать middleware об очистке HttpOnly cookie
-	// ВАЖНО: Передаем ctx из аргументов резолвера.
-	err := middleware.SignalClearAuthCookie(ctx)
+	// 1. НЕМЕДЛЕННО очистить cookie
+	writer, err := middleware.GetResponseWriterFromContext(ctx)
 	if err != nil {
-		// Это ошибка, но логаут можно считать успешным,
-		// так как сервер не "помнит" пользователя (токен в cookie будет недействителен или отсутствовать)
-		log.Printf("Logout: Failed to signal ClearAuthCookie: %v", err)
-		// Не возвращаем ошибку клиенту, так как логическая операция "выйти" выполнена.
-		// Клиент может просто игнорировать cookie.
+		log.Printf("Logout: Could not get ResponseWriter from context: %v", err)
+		// Не критично, просто логируем
+	} else {
+		middleware.SignalClearAuthCookieDirect(writer)
 	}
 
-	// 2. Всегда возвращаем true, указывая, что запрос на логаут обработан.
-	// Даже если cookie не был установлен или не удалось его удалить,
-	// пользователь на стороне сервера де-факто "разлогинен".
+	// 2. Всегда возвращаем true
 	return true, nil
 }
 

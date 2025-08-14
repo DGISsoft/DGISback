@@ -78,6 +78,7 @@ type Mutation {
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   refreshToken: AuthPayload!
+  createUser(input: CreateUserInput!): User!
   register(input: CreateUserInput!): User!
   addMarker(input: CreateMarkerInput!): Marker!
 

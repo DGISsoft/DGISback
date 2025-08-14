@@ -11,10 +11,12 @@ require (
 	go.mongodb.org/mongo-driver v1.17.4
 )
 
-require github.com/DGISsoft/DGISback/models v0.0.0-20250811093754-5671dfa55a42
+require (
+	github.com/DGISsoft/DGISback/models v0.0.0-20250811093754-5671dfa55a42
+	github.com/DGISsoft/DGISback/services v0.0.0-20250811094901-44941e71f8f7
+)
 
 require (
-	github.com/DGISsoft/DGISback/services v0.0.0-20250805123623-3127f3a48801 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect

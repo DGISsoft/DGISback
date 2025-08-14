@@ -12,39 +12,52 @@ import (
 type contextKey string
 
 const UserContextKey contextKey = "user"
+const AuthCookieName = "auth-token" // Имя вашей аутентификационной куки
 
-// AuthMiddleware проверяет JWT токен и добавляет информацию о пользователе в контекст
+// AuthMiddleware проверяет JWT токен из заголовка Authorization или из Cookie и добавляет информацию о пользователе в контекст
 func AuthMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        var tokenString string
+
+        // 1. Сначала пробуем получить токен из заголовка Authorization (для обратной совместимости или API вызовов)
         authHeader := r.Header.Get("Authorization")
-        if authHeader == "" {
-            // Если нет заголовка авторизации, продолжаем без аутентификации
+        if authHeader != "" {
+            tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+            if tokenString == authHeader {
+                tokenString = "" // Не в правильном формате
+            }
+        }
+
+        // 2. Если в заголовке нет токена, пробуем получить его из Cookie
+        if tokenString == "" {
+            if cookie, err := r.Cookie(AuthCookieName); err == nil {
+                tokenString = cookie.Value
+            }
+        }
+
+        // 3. Если токен так и не найден, продолжаем без аутентификации
+        if tokenString == "" {
             next.ServeHTTP(w, r)
             return
         }
-        
-        tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-        if tokenString == authHeader {
-            // Если заголовок не в правильном формате, продолжаем без аутентификации
-            next.ServeHTTP(w, r)
-            return
-        }
-        
-        // Создаем JWT менеджер
+
+        // 4. Создаем JWT менеджер
         jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
-        
-        // Проверяем токен
+
+        // 5. Проверяем токен
         claims, err := jwtManager.VerifyToken(tokenString)
         if err != nil {
             // Если токен недействителен, продолжаем без аутентификации
+            // Можно добавить логирование ошибки для отладки
+            // log.Printf("Invalid token: %v", err)
             next.ServeHTTP(w, r)
             return
         }
-        
-        // Добавляем информацию о пользователе в контекст
+
+        // 6. Добавляем информацию о пользователе в контекст
         ctx := context.WithValue(r.Context(), UserContextKey, claims)
         r = r.WithContext(ctx)
-        
+
         next.ServeHTTP(w, r)
     })
 }

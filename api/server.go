@@ -92,6 +92,7 @@ func main() {
 
     // 4. Создание UserService, передавая ему MongoService
     userService := serv.NewUserService(mongoService) // <-- ВАЖНО: Передаем *MongoService
+    markerService := serv.NewMarkerService(mongoService)
 
     // 5. Создание администратора при необходимости (новая логика)
     createDefaultAdmin(userService)
@@ -99,6 +100,7 @@ func main() {
     // 6. Создание Resolver с UserService
     resolver := &graph.Resolver{
         UserService: userService, // <-- ВАЖНО: Передаем *UserService
+        MarkerService: markerService,
     }
     port := os.Getenv("PORT")
     if port == "" {

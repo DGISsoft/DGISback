@@ -73,15 +73,22 @@ func SignalClearAuthCookie(ctx context.Context) {
 
 // AuthMiddleware проверяет JWT токен из Cookie или заголовка Authorization
 // и управляет HttpOnly cookie для аутентификации.
+// AuthMiddleware проверяет JWT токен из Cookie или заголовка Authorization
+// и управляет HttpOnly cookie для аутентификации.
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("AuthMiddleware: [1] Incoming request for %s %s", r.Method, r.URL.Path) // Лог
 		// 1. Инициализируем AuthContext для этого запроса
 		authCtx := &AuthContext{}
+		log.Printf("AuthMiddleware: [2] Created new AuthContext at %p", authCtx) // Лог
 
 		// 2. Пробуем получить токен из Cookie
 		var tokenString string
 		if cookie, err := r.Cookie(AuthCookieName); err == nil {
 			tokenString = cookie.Value
+			log.Printf("AuthMiddleware: [3] Found auth cookie, value length: %d", len(tokenString)) // Лог
+		} else {
+			 log.Println("AuthMiddleware: [3] No auth cookie found in request") // Лог
 		}
 
 		// 3. Fallback: пробуем получить токен из заголовка Authorization (Bearer)
@@ -93,6 +100,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				if tokenString == authHeader {
 					tokenString = "" // Не в правильном формате
 				}
+				if tokenString != "" {
+					log.Printf("AuthMiddleware: [3b] Found auth token in Authorization header, length: %d", len(tokenString)) // Лог
+				}
 			}
 		}
 
@@ -100,22 +110,28 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		if tokenString != "" {
 			jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
 			if claims, err := jwtManager.VerifyToken(tokenString); err == nil {
+				log.Println("AuthMiddleware: [4] Token verified successfully") // Лог
 				authCtx.User = claims
 			} else {
-				// Логируем ошибку проверки для отладки
-				log.Printf("AuthMiddleware: Invalid or expired token: %v", err)
+				log.Printf("AuthMiddleware: [4] Invalid or expired token: %v", err)
 			}
+		} else {
+			 log.Println("AuthMiddleware: [4] No token found to verify") // Лог
 		}
 
 		// 5. Кладем AuthContext в контекст запроса
 		ctxWithAuth := context.WithValue(r.Context(), authContextKey, authCtx)
+		log.Printf("AuthMiddleware: [5] Put AuthContext (%p) into context with key %v", authCtx, authContextKey) // Лог
 		rWithAuth := r.WithContext(ctxWithAuth)
+		log.Printf("AuthMiddleware: [6] Request context replaced. New context contains AuthContext: %t", GetAuthContext(rWithAuth.Context()) == authCtx) // Лог
 
 		// 6. Передаем управление следующему обработчику (srv)
 		// Это блокирующий вызов, который выполняет весь GraphQL-запрос,
 		// включая все resolvers. Именно здесь resolvers могут вызвать
 		// SignalSetAuthCookie или SignalClearAuthCookie.
+		log.Println("AuthMiddleware: [7] Calling next.ServeHTTP (GraphQL handler)") // Лог
 		next.ServeHTTP(w, rWithAuth)
+		log.Println("AuthMiddleware: [8] Returned from next.ServeHTTP (GraphQL handler)") // Лог
 
 		// --- ВАЖНО: Код ниже выполняется ПОСЛЕ завершения next.ServeHTTP ---
 		// Здесь мы можем получить обновленный AuthContext из контекста,
@@ -125,10 +141,12 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		// Используем контекст из rWithAuth, так как именно он мог быть изменен
 		// (хотя контекст http.Request не изменяется, структура AuthContext по указателю - изменяется).
 		finalAuthCtx := GetAuthContext(rWithAuth.Context())
+		log.Printf("AuthMiddleware: [9] Retrieved final AuthContext (%p) from request context", finalAuthCtx) // Лог
+		log.Printf("AuthMiddleware: [9b] Final AuthContext details - User: %v, ShouldSet: %v, TokenToSet: '%.10s...', ShouldClear: %v", finalAuthCtx.User != nil, finalAuthCtx.ShouldSetCookie, finalAuthCtx.TokenToSet, finalAuthCtx.ShouldClearCookie) // Лог
 
 		// 8. Выполняем действия с cookie на основе сигналов
 		if finalAuthCtx.ShouldClearCookie {
-			// log.Println("AuthMiddleware: Clearing auth cookie") // Для отладки
+			log.Println("AuthMiddleware: [10] Clearing auth cookie") // Лог
 			http.SetCookie(w, &http.Cookie{
 				Name:     AuthCookieName,
 				Value:    "",
@@ -139,7 +157,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				MaxAge:   -1, // Удаляет cookie
 			})
 		} else if finalAuthCtx.ShouldSetCookie && finalAuthCtx.TokenToSet != "" {
-			// log.Println("AuthMiddleware: Setting auth cookie") // Для отладки
+			log.Printf("AuthMiddleware: [10] Setting auth cookie, token length: %d", len(finalAuthCtx.TokenToSet)) // Лог
 			http.SetCookie(w, &http.Cookie{
 				Name:     AuthCookieName,
 				Value:    finalAuthCtx.TokenToSet,
@@ -150,8 +168,10 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				MaxAge:   int(auth.GetTokenDuration().Seconds()),
 				// Expires:  time.Now().Add(auth.GetTokenDuration()),
 			})
+		} else {
+			log.Println("AuthMiddleware: [10] No cookie action needed after request") // Лог
 		}
-		// Если ни один флаг не установлен, никаких действий с cookie не требуется.
+		log.Printf("AuthMiddleware: [11] Finished processing request for %s %s", r.Method, r.URL.Path) // Лог
 	})
 }
 

@@ -46,17 +46,23 @@ func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*mode
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
+	log.Printf("Login resolver called with login: %s", input.Login) // <-- Лог
+
 	// 1. Получить пользователя по логину через UserService
 	user, err := r.UserService.GetUserByLogin(ctx, input.Login)
 	if err != nil {
+		log.Printf("Login failed: user %s not found", input.Login) // <-- Лог
 		// Можно вернуть более общую ошибку для безопасности
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	// 2. Проверить пароль
 	if !r.UserService.CheckPassword(user.Password, input.Password) {
+		log.Printf("Login failed: invalid password for user %s", input.Login) // <-- Лог
 		return nil, fmt.Errorf("invalid credentials")
 	}
+
+	log.Printf("Login successful for user ID: %s, Login: %s", user.ID.Hex(), user.Login) // <-- Лог
 
 	// 3. Создать JWTManager (используя ключ и длительность из env или дефолтные)
 	jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
@@ -68,14 +74,18 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 		return nil, fmt.Errorf("could not generate token")
 	}
 
+	log.Printf("JWT token generated for user %s, token length: %d", user.Login, len(tokenString)) // <-- Лог
+
 	// --- НОВАЯ ЛОГИКА: Сигнализируем middleware об установке cookie ---
 	// Вместо попытки получить ResponseWriter, мы используем SignalSetAuthCookie
 	// из обновленного middleware. Эта функция изменит AuthContext в контексте.
+	log.Println("Signaling AuthMiddleware to set auth cookie") // <-- Лог
 	middleware.SignalSetAuthCookie(ctx, tokenString)
 	// --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
 	// 5. Вернуть AuthPayload
 	// Токен в cookie, но можно оставить его и в ответе для API/отладки
+	log.Println("Login resolver finished successfully") // <-- Лог
 	return &model.AuthPayload{
 		Token: "", // Основная аутентификация через cookie, можно вернуть "" или токен
 		User:  user,
@@ -382,18 +392,25 @@ func (r *queryResolver) User(ctx context.Context, id primitive.ObjectID) (*model
 
 // AllMarkers is the resolver for the allMarkers field.
 func (r *queryResolver) AllMarkers(ctx context.Context) ([]*models.Marker, error) {
+	log.Println("AllMarkers resolver called") // <-- Лог
+
 	// Проверяем аутентификацию
-	_, ok := middleware.GetUserFromContext(ctx)
+	claims, ok := middleware.GetUserFromContext(ctx)
 	if !ok {
+		log.Println("AllMarkers resolver: User not authenticated (no claims in context)") // <-- Лог
 		return nil, fmt.Errorf("not authenticated")
 	}
+
+	log.Printf("AllMarkers resolver: Authenticated user, ID: %s, Role: %s", claims.UserID, claims.Role) // <-- Лог
 
 	// Получаем все маркеры
 	markers, err := r.MarkerService.GetAllMarkers(ctx)
 	if err != nil {
+		log.Printf("AllMarkers resolver: Failed to get markers: %v", err) // <-- Лог
 		return nil, fmt.Errorf("failed to get markers: %w", err)
 	}
 
+	log.Printf("AllMarkers resolver finished successfully, returned %d markers", len(markers)) // <-- Лог
 	return markers, nil
 }
 

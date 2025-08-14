@@ -110,7 +110,7 @@ func main() {
         // ВАЖНО: Замените "*" на конкретный origin вашего фронтенда в production
         // Например: []string{"http://localhost:3000", "https://yourdomain.com"}
         // Использование "*" с AllowCredentials = true запрещено спецификацией CORS
-        AllowedOrigins: []string{"*"}, // <-- В production изменить!
+        AllowedOrigins: []string{"http://localhost:5173"}, // <-- В production изменить!
         // Разрешаем отправку credentials (cookies)
         AllowCredentials: true, // <-- ВАЖНО: Установить true
         // Можно оставить "*" для заголовков и методов при AllowCredentials=true, 

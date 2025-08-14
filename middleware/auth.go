@@ -152,7 +152,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				Path:     "/",
 				HttpOnly: true,
 				Secure:   false, // Установите true в production при использовании HTTPS
-				SameSite: http.SameSiteStrictMode,
+				SameSite: http.SameSiteLaxMode,
 				MaxAge:   -1, // Удаление cookie
 				Expires:  time.Unix(0, 0), // Альтернативный способ удаления
 			})
@@ -166,7 +166,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				Path:     "/",
 				HttpOnly: true,
 				Secure:   false, // Установите true в production при использовании HTTPS
-				SameSite: http.SameSiteStrictMode,
+				SameSite: http.SameSiteLaxMode,
 				MaxAge:   int(tokenDuration.Seconds()), // Устанавливаем срок действия cookie
 				// Expires:  time.Now().Add(tokenDuration), // Альтернативный способ установки срока
 			})

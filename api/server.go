@@ -111,7 +111,7 @@ func main() {
         AllowedOrigins: []string{"http://localhost:5173"},
         AllowCredentials: true,
         AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-        AllowedHeaders: []string{"Authorization", "Content-Type"},
+        AllowedHeaders: []string{"*"},
     })
     srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 

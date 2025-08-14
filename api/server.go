@@ -107,12 +107,17 @@ func main() {
     }
 
     c := cors.New(cors.Options{
-        AllowedOrigins:   []string{"*"},
-        AllowCredentials: false,
-        AllowedHeaders:   []string{"*"},
-        AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+        // ВАЖНО: Замените "*" на конкретный origin вашего фронтенда в production
+        // Например: []string{"http://localhost:3000", "https://yourdomain.com"}
+        // Использование "*" с AllowCredentials = true запрещено спецификацией CORS
+        AllowedOrigins: []string{"*"}, // <-- В production изменить!
+        // Разрешаем отправку credentials (cookies)
+        AllowCredentials: true, // <-- ВАЖНО: Установить true
+        // Можно оставить "*" для заголовков и методов при AllowCredentials=true, 
+        // но лучше указать конкретные, если возможно
+        AllowedHeaders: []string{"*"}, 
+        AllowedMethods: []string{"GET", "POST", "OPTIONS"},
     })
-
     srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
     srv.AddTransport(transport.Options{})

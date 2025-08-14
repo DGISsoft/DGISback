@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/DGISsoft/DGISback/api/auth"
@@ -51,12 +50,12 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 	user, err := r.UserService.GetUserByLogin(ctx, input.Login)
 	if err != nil {
 		// Можно вернуть более общую ошибку для безопасности
-		return nil, fmt.Errorf("invalid")
+		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	// 2. Проверить пароль
 	if !r.UserService.CheckPassword(user.Password, input.Password) {
-		return nil, fmt.Errorf("invalids")
+		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	// 3. Создать JWTManager (используя ключ и длительность из env или дефолтные)
@@ -69,58 +68,27 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 		return nil, fmt.Errorf("could not generate token")
 	}
 
-	// --- НОВОЕ: Установка HttpOnly Cookie ---
-	// Получаем http.ResponseWriter из контекста (это зависит от вашего серверного фреймворка,
-	// например, gqlgen предоставляет его через контекст)
-	// Предположим, что у вас есть способ получить ResponseWriter
-	// Если вы используете стандартный net/http с gqlgen, это может быть так:
-	if rw, ok := ctx.Value("http.response.writer").(http.ResponseWriter); ok {
-		// Создаем cookie
-		cookie := &http.Cookie{
-			Name:     middleware.AuthCookieName, // "auth-token"
-			Value:    tokenString,
-			Path:     "/", // Доступна для всего сайта
-			// Domain: "", // Оставьте пустым для текущего домена
-			// Expires:  time.Now().Add(auth.GetTokenDuration()), // Или MaxAge
-			MaxAge:   int(auth.GetTokenDuration().Seconds()), // Время жизни в секундах
-			HttpOnly: true,  // НЕДОСТУПЕН для JavaScript
-			Secure:   true,  // Отправлять только по HTTPS (уберите в development если HTTP)
-			SameSite: http.SameSiteStrictMode, // Защита от CSRF
-			// SameSite: http.SameSiteLaxMode, // Более мягкий вариант
-		}
-		http.SetCookie(rw, cookie)
-	} else {
-		log.Println("Warning: Could not get http.ResponseWriter to set auth cookie")
-		// Если не удалось установить cookie, можно вернуть ошибку или продолжить
-		// return nil, fmt.Errorf("internal server error")
-	}
-	// --- КОНЕЦ НОВОГО ---
+	// --- НОВАЯ ЛОГИКА: Сигнализируем middleware об установке cookie ---
+	// Вместо попытки получить ResponseWriter, мы используем SignalSetAuthCookie
+	// из обновленного middleware. Эта функция изменит AuthContext в контексте.
+	middleware.SignalSetAuthCookie(ctx, tokenString)
+	// --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
-	// 5. Вернуть AuthPayload (токен в payload теперь не обязателен, но можно оставить для обратной совместимости)
+	// 5. Вернуть AuthPayload
+	// Токен в cookie, но можно оставить его и в ответе для API/отладки
 	return &model.AuthPayload{
-		Token: tokenString, // Можно удалить, если клиент больше не использует его
+		Token: "", // Основная аутентификация через cookie, можно вернуть "" или токен
 		User:  user,
 	}, nil
 }
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
-	// Логика выхода - удаление cookie
-	if rw, ok := ctx.Value("http.response.writer").(http.ResponseWriter); ok {
-		// Создаем cookie с истекшим сроком действия
-		cookie := &http.Cookie{
-			Name:     middleware.AuthCookieName, // "auth-token"
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1, // Удаляет cookie
-			HttpOnly: true,
-			Secure:   true, // Установите false для HTTP в development
-			SameSite: http.SameSiteStrictMode,
-		}
-		http.SetCookie(rw, cookie)
-	} else {
-		log.Println("Warning: Could not get http.ResponseWriter to clear auth cookie")
-	}
+	// --- НОВАЯ ЛОГИКА: Сигнализируем middleware об удалении cookie ---
+	// Эта функция изменит AuthContext в контексте.
+	middleware.SignalClearAuthCookie(ctx)
+	// --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
 	return true, nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
+	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/DGISsoft/DGISback/api/graph"
 	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models" // Импортируем models
@@ -84,22 +85,21 @@ func main() {
         }
     }()
 
-    // 2. Получение базы данных
-    database := client.Database("dgis-db") // Ваше имя БД
 
-    // 3. Создание MongoService
-    mongoService := serv.New(database) // <-- ВАЖНО: Передаем *mongo.Database
+    database := client.Database("dgis-db")
 
-    // 4. Создание UserService, передавая ему MongoService
-    userService := serv.NewUserService(mongoService) // <-- ВАЖНО: Передаем *MongoService
+
+    mongoService := serv.New(database)
+
+
+    userService := serv.NewUserService(mongoService)
     markerService := serv.NewMarkerService(mongoService)
 
-    // 5. Создание администратора при необходимости (новая логика)
     createDefaultAdmin(userService)
 
-    // 6. Создание Resolver с UserService
+
     resolver := &graph.Resolver{
-        UserService: userService, // <-- ВАЖНО: Передаем *UserService
+        UserService: userService,
         MarkerService: markerService,
     }
     port := os.Getenv("PORT")
@@ -108,14 +108,10 @@ func main() {
     }
 
     c := cors.New(cors.Options{
-        // ВАЖНО: Замените "*" на конкретный origin вашего фронтенда в production
         AllowedOrigins: []string{"http://localhost:5173"},
         AllowCredentials: true,
         AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
         AllowedHeaders: []string{"Authorization", "Content-Type"},
-        // Использование "*" с AllowCredentials = true запрещено спецификацией CORS
-
-
     })
     srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
@@ -130,12 +126,11 @@ func main() {
         Cache: lru.New[string](100),
     })
     muxGraphql := http.NewServeMux()
-
+	muxGraphql.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	muxGraphql.Handle("/query", c.Handler(middleware.AuthMiddleware(srv)))
 
     log.Printf("Starting GraphQL server on :%s", port)
     if err := http.ListenAndServe(":"+port, muxGraphql); err != nil {
         log.Fatalf("GraphQL server error: %v", err)
     }
-    // Убираем select {} и запускаем сервер синхронно
 }

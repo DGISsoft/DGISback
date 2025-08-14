@@ -7,99 +7,25 @@ package graph
 import (
 	"context"
 	"fmt"
-	"log"
-	"time"
 
-	"github.com/DGISsoft/DGISback/api/auth"
 	"github.com/DGISsoft/DGISback/api/graph/model"
-	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Users is the resolver for the users field.
 func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*models.User, error) {
-	// Проверяем аутентификацию
-	_, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Если нет назначенных пользователей, возвращаем пустой slice
-	if len(obj.Users) == 0 {
-		return []*models.User{}, nil
-	}
-
-	// Получаем пользователей по их ID
-	var users []*models.User
-	for _, userID := range obj.Users {
-		user, err := r.UserService.GetUserByID(ctx, userID)
-		if err != nil {
-			// Пропускаем пользователей, которых не удалось найти
-			continue
-		}
-		users = append(users, user)
-	}
-
-	return users, nil
+	panic(fmt.Errorf("not implemented: Users - users"))
 }
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-	log.Printf("Login resolver called with login: %s", input.Login) // <-- Лог
-
-	// 1. Получить пользователя по логину через UserService
-	user, err := r.UserService.GetUserByLogin(ctx, input.Login)
-	if err != nil {
-		log.Printf("Login failed: user %s not found", input.Login) // <-- Лог
-		// Можно вернуть более общую ошибку для безопасности
-		return nil, fmt.Errorf("invalid credentials")
-	}
-
-	// 2. Проверить пароль
-	if !r.UserService.CheckPassword(user.Password, input.Password) {
-		log.Printf("Login failed: invalid password for user %s", input.Login) // <-- Лог
-		return nil, fmt.Errorf("invalid credentials")
-	}
-
-	log.Printf("Login successful for user ID: %s, Login: %s", user.ID.Hex(), user.Login) // <-- Лог
-
-	// 3. Создать JWTManager (используя ключ и длительность из env или дефолтные)
-	jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
-
-	// 4. Сгенерировать токен
-	tokenString, err := jwtManager.GenerateToken(user)
-	if err != nil {
-		log.Printf("Failed to generate token for user %s: %v", user.Login, err)
-		return nil, fmt.Errorf("could not generate token")
-	}
-
-	log.Printf("JWT token generated for user %s, token length: %d", user.Login, len(tokenString)) // <-- Лог
-
-	// --- НОВАЯ ЛОГИКА: Сигнализируем middleware об установке cookie ---
-	// Вместо попытки получить ResponseWriter, мы используем SignalSetAuthCookie
-	// из обновленного middleware. Эта функция изменит AuthContext в контексте.
-	log.Println("Signaling AuthMiddleware to set auth cookie") // <-- Лог
-	middleware.SignalSetAuthCookie(ctx, tokenString)
-	// --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-
-	// 5. Вернуть AuthPayload
-	// Токен в cookie, но можно оставить его и в ответе для API/отладки
-	log.Println("Login resolver finished successfully") // <-- Лог
-	return &model.AuthPayload{
-		Token: tokenString, // Отдаем токен и в теле ответа для дебага
-		User:  user,
-	}, nil
+	panic(fmt.Errorf("not implemented: Login - login"))
 }
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
-	// --- НОВАЯ ЛОГИКА: Сигнализируем middleware об удалении cookie ---
-	// Эта функция изменит AuthContext в контексте.
-	middleware.SignalClearAuthCookie(ctx)
-	// --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-
-	return true, nil
+	panic(fmt.Errorf("not implemented: Logout - logout"))
 }
 
 // RefreshToken is the resolver for the refreshToken field.
@@ -107,64 +33,9 @@ func (r *mutationResolver) RefreshToken(ctx context.Context) (*model.AuthPayload
 	panic(fmt.Errorf("not implemented: RefreshToken - refreshToken"))
 }
 
-
 // CreateUser is the resolver for the createUser field.
 func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*models.User, error) {
-	// 1. Проверить аутентификацию
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// 2. Проверить права доступа - только DGIS и PREDSEDATEL могут создавать пользователей
-	if claims.Role != models.UserRolePredsedatel && claims.Role != models.UserRoleDgis {
-		return nil, fmt.Errorf("forbidden: insufficient permissions to create users")
-	}
-
-	// 3. Проверить валидность роли
-	if !input.Role.IsValid() {
-		return nil, fmt.Errorf("invalid user role")
-	}
-
-	// 4. Проверить, существует ли уже пользователь с таким логином
-	_, err := r.UserService.GetUserByLogin(ctx, input.Login)
-	if err == nil {
-		return nil, fmt.Errorf("user with this login already exists")
-	}
-
-	// 5. Подготовить структуру models.User из входных данных
-	now := time.Now()
-	newUser := &models.User{
-		Login:       input.Login,
-		Password:    input.Password, // Передаем plaintext пароль, хэширование произойдет в UserService.CreateUser
-		Role:        input.Role,
-		FullName:    input.FullName,
-		Building:    input.Building,
-		PhoneNumber: input.PhoneNumber,
-		TelegramTag: input.TelegramTag,
-		CreatedAt:   now,
-		UpdatedAt:   now, // Изначально UpdatedAt равен CreatedAt
-		Markers:     []primitive.ObjectID{}, // Инициализируем пустой список маркеров
-		// ID будет сгенерирован MongoDB при InsertOne
-	}
-
-	// 6. Вызвать UserService для создания пользователя
-	// UserService.CreateUser автоматически хеширует пароль
-	err = r.UserService.CreateUser(ctx, newUser)
-	if err != nil {
-		log.Printf("Failed to create user %s: %v", input.Login, err)
-		// Можно возвращать более общую ошибку для безопасности
-		// return nil, fmt.Errorf("could not create user")
-		// Или возвращать конкретную ошибку, если это приемлемо (например, "login already exists")
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	// 7. Вернуть созданного пользователя
-	// newUser теперь должен содержать сгенерированный ID
-	// Не возвращаем пароль для безопасности
-	newUser.Password = ""
-	
-	return newUser, nil
+	panic(fmt.Errorf("not implemented: CreateUser - createUser"))
 }
 
 // Register is the resolver for the register field.
@@ -174,322 +45,67 @@ func (r *mutationResolver) Register(ctx context.Context, input model.CreateUserI
 
 // AddMarker is the resolver for the addMarker field.
 func (r *mutationResolver) AddMarker(ctx context.Context, input model.CreateMarkerInput) (*models.Marker, error) {
-	// Получаем информацию о пользователе из контекста
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Проверяем роль пользователя - только DGIS и PREDSEDATEL могут добавлять маркеры
-	if claims.Role != models.UserRolePredsedatel && claims.Role != models.UserRoleDgis {
-		return nil, fmt.Errorf("forbidden: insufficient permissions")
-	}
-
-	// Создаем новый маркер
-	marker := &models.Marker{
-		MarkerID: input.MarkerID,
-		Position: input.Position,
-		Label:    input.Label,
-		Users:    []primitive.ObjectID{},
-	}
-
-	// Сохраняем маркер в базе данных
-	err := r.MarkerService.CreateMarker(ctx, marker)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create marker: %w", err)
-	}
-
-	return marker, nil
+	panic(fmt.Errorf("not implemented: AddMarker - addMarker"))
 }
 
 // AssignUser is the resolver for the assignUser field.
 func (r *mutationResolver) AssignUser(ctx context.Context, input model.AssignUserInput) (*models.Marker, error) {
-	// Получаем информацию о пользователе из контекста
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Проверяем роль пользователя - только DGIS и PREDSEDATEL могут назначать старост
-	if claims.Role != models.UserRolePredsedatel && claims.Role != models.UserRoleDgis {
-		return nil, fmt.Errorf("forbidden: insufficient permissions")
-	}
-
-	// Назначаем пользователя маркеру
-	err := r.MarkerService.AssignUserToMarker(ctx, input.UserID, input.MarkerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to assign user: %w", err)
-	}
-
-	// Получаем обновленный маркер
-	marker, err := r.MarkerService.GetMarkerByID(ctx, input.MarkerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get updated marker: %w", err)
-	}
-
-	return marker, nil
+	panic(fmt.Errorf("not implemented: AssignUser - assignUser"))
 }
 
 // RemoveUser is the resolver for the removeUser field.
 func (r *mutationResolver) RemoveUser(ctx context.Context, input model.RemoveUserInput) (*models.Marker, error) {
-	// Получаем информацию о пользователе из контекста
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Проверяем роль пользователя - только DGIS и PREDSEDATEL могут удалять старост
-	if claims.Role != models.UserRolePredsedatel && claims.Role != models.UserRoleDgis {
-		return nil, fmt.Errorf("forbidden: insufficient permissions")
-	}
-
-	// Удаляем пользователя из маркера
-	err := r.MarkerService.RemoveUserFromMarker(ctx, input.UserID, input.MarkerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to remove user: %w", err)
-	}
-
-	// Получаем обновленный маркер
-	marker, err := r.MarkerService.GetMarkerByID(ctx, input.MarkerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get updated marker: %w", err)
-	}
-
-	return marker, nil
+	panic(fmt.Errorf("not implemented: RemoveUser - removeUser"))
 }
 
 // AssignMany is the resolver for the assignMany field.
 func (r *mutationResolver) AssignMany(ctx context.Context, markerID primitive.ObjectID, userIds []primitive.ObjectID) (*models.Marker, error) {
-	// Получаем информацию о пользователе из контекста
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Проверяем роль пользователя - только DGIS и PREDSEDATEL могут назначать множественных пользователей
-	if claims.Role != models.UserRolePredsedatel && claims.Role != models.UserRoleDgis {
-		return nil, fmt.Errorf("forbidden: insufficient permissions")
-	}
-
-	// Назначаем всех пользователей маркеру
-	for _, userID := range userIds {
-		err := r.MarkerService.AssignUserToMarker(ctx, userID, markerID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to assign user %s: %w", userID.Hex(), err)
-		}
-	}
-
-	// Получаем обновленный маркер
-	marker, err := r.MarkerService.GetMarkerByID(ctx, markerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get updated marker: %w", err)
-	}
-
-	return marker, nil
+	panic(fmt.Errorf("not implemented: AssignMany - assignMany"))
 }
 
 // ClearMarker is the resolver for the clearMarker field.
 func (r *mutationResolver) ClearMarker(ctx context.Context, markerID primitive.ObjectID) (*models.Marker, error) {
-	// Получаем информацию о пользователе из контекста
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Проверяем роль пользователя - только DGIS и PREDSEDATEL могут очищать маркеры
-	if claims.Role != models.UserRolePredsedatel && claims.Role != models.UserRoleDgis {
-		return nil, fmt.Errorf("forbidden: insufficient permissions")
-	}
-
-	// Очищаем всех пользователей у маркера
-	err := r.MarkerService.ClearAllUsersFromMarker(ctx, markerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to clear marker: %w", err)
-	}
-
-	// Получаем обновленный маркер
-	marker, err := r.MarkerService.GetMarkerByID(ctx, markerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get updated marker: %w", err)
-	}
-
-	return marker, nil
+	panic(fmt.Errorf("not implemented: ClearMarker - clearMarker"))
 }
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
-	// 1. Получить информацию о пользователе из контекста (добавленную middleware)
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		// Middleware не добавила пользователя в контекст, значит, пользователь не аутентифицирован
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// 2. Преобразовать ObjectID из строки в primitive.ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
-	if err != nil {
-		log.Printf("Invalid user ID in token claims: %s", claims.UserID)
-		return nil, fmt.Errorf("invalid token")
-	}
-
-	// 3. Получить полную информацию о пользователе из БД
-	// Это гарантирует, что мы получаем актуальные данные
-	user, err := r.UserService.GetUserByID(ctx, userID)
-	if err != nil {
-		log.Printf("Failed to get user by ID %s from DB: %v", claims.UserID, err)
-		// Если пользователь не найден, возможно, аккаунт был удален
-		return nil, fmt.Errorf("user not found")
-	}
-
-	return user, nil
+	panic(fmt.Errorf("not implemented: Me - me"))
 }
 
 // Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
-	// 1. Проверить аутентификацию (обычно список пользователей защищен)
-	_, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-	// 2. Проверить права доступа (опционально, например, только администраторы)
-	// claims, _ := middleware.GetUserFromContext(ctx)
-	// if claims.Role != models.AdminRole { return nil, fmt.Errorf("access denied") }
-
-	// 3. Получить список пользователей из БД
-	users, err := r.UserService.GetUsers(ctx)
-	if err != nil {
-		log.Printf("Failed to get users list: %v", err)
-		return nil, fmt.Errorf("could not fetch users")
-	}
-
-	return users, nil
+	panic(fmt.Errorf("not implemented: Users - users"))
 }
 
 // User is the resolver for the user field.
 func (r *queryResolver) User(ctx context.Context, id primitive.ObjectID) (*models.User, error) {
-	// 1. Проверить аутентификацию (обычно просмотр профиля требует аутентификации)
-	_, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-	// 2. Проверить права доступа (опционально)
-	// Можно проверить, запрашивает ли пользователь свой собственный профиль или имеет права админа
-	// claims, _ := middleware.GetUserFromContext(ctx)
-	// if claims.UserID != id.Hex() && claims.Role != models.AdminRole { return nil, fmt.Errorf("access denied") }
-
-	// 3. Получить пользователя из БД по ID
-	user, err := r.UserService.GetUserByID(ctx, id)
-	if err != nil {
-		if err.Error() == "user not found" {
-			return nil, fmt.Errorf("user not found") // Более точная ошибка
-		}
-		log.Printf("Failed to get user by ID %s: %v", id.Hex(), err)
-		return nil, fmt.Errorf("could not fetch user")
-	}
-
-	return user, nil
+	panic(fmt.Errorf("not implemented: User - user"))
 }
 
 // AllMarkers is the resolver for the allMarkers field.
 func (r *queryResolver) AllMarkers(ctx context.Context) ([]*models.Marker, error) {
-	log.Println("AllMarkers resolver called") // <-- Лог
-
-	// Проверяем аутентификацию
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		log.Println("AllMarkers resolver: User not authenticated (no claims in context)") // <-- Лог
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	log.Printf("AllMarkers resolver: Authenticated user, ID: %s, Role: %s", claims.UserID, claims.Role) // <-- Лог
-
-	// Получаем все маркеры
-	markers, err := r.MarkerService.GetAllMarkers(ctx)
-	if err != nil {
-		log.Printf("AllMarkers resolver: Failed to get markers: %v", err) // <-- Лог
-		return nil, fmt.Errorf("failed to get markers: %w", err)
-	}
-
-	log.Printf("AllMarkers resolver finished successfully, returned %d markers", len(markers)) // <-- Лог
-	return markers, nil
+	panic(fmt.Errorf("not implemented: AllMarkers - allMarkers"))
 }
 
 // Marker is the resolver for the marker field.
 func (r *queryResolver) Marker(ctx context.Context, id primitive.ObjectID) (*models.Marker, error) {
-	// Проверяем аутентификацию
-	_, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Получаем маркер по ID
-	marker, err := r.MarkerService.GetMarkerByID(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get marker: %w", err)
-	}
-
-	return marker, nil
+	panic(fmt.Errorf("not implemented: Marker - marker"))
 }
 
 // MarkerByCode is the resolver for the markerByCode field.
 func (r *queryResolver) MarkerByCode(ctx context.Context, code string) (*models.Marker, error) {
-	// Проверяем аутентификацию
-	_, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Получаем маркер по markerId
-	marker, err := r.MarkerService.GetMarkerByMarkerID(ctx, code)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get marker: %w", err)
-	}
-
-	return marker, nil
+	panic(fmt.Errorf("not implemented: MarkerByCode - markerByCode"))
 }
 
 // Dashboard is the resolver for the dashboard field.
 func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error) {
-	// Получаем информацию о пользователе из контекста
-	claims, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Проверяем роль пользователя - только DGIS и PREDSEDATEL могут видеть dashboard
-	if claims.Role != models.UserRolePredsedatel && claims.Role != models.UserRoleDgis {
-		return nil, fmt.Errorf("forbidden: insufficient permissions")
-	}
-
-	// Получаем все маркеры с пользователями
-	markers, err := r.MarkerService.GetAllMarkersWithUsers(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get dashboard  %w", err)
-	}
-
-	return markers, nil
+	panic(fmt.Errorf("not implemented: Dashboard - dashboard"))
 }
 
 // Markers is the resolver for the markers field.
 func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error) {
-	// Проверяем аутентификацию
-	_, ok := middleware.GetUserFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("not authenticated")
-	}
-
-	// Получаем маркеры пользователя
-	var markers []*models.Marker
-	for _, markerID := range obj.Markers {
-		marker, err := r.MarkerService.GetMarkerByID(ctx, markerID)
-		if err != nil {
-			// Пропускаем маркеры, которые не удалось получить
-			continue
-		}
-		markers = append(markers, marker)
-	}
-
-	return markers, nil
+	panic(fmt.Errorf("not implemented: Markers - markers"))
 }
 
 // Marker returns MarkerResolver implementation.

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time" // Добавлено для работы с Duration
 
 	"github.com/DGISsoft/DGISback/api/auth"
@@ -82,7 +81,7 @@ func SignalClearAuthCookie(ctx context.Context) error {
 	return nil
 }
 
-// AuthMiddleware проверяет JWT токен из Cookie или заголовка Authorization
+// AuthMiddleware проверяет JWT токен ТОЛЬКО из Cookie
 // и управляет HttpOnly cookie для аутентификации.
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,30 +91,17 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		authCtx := &AuthContext{}
 		log.Printf("AuthMiddleware [BEFORE]: Created AuthContext at %p", authCtx) // Для отладки
 
-		// 2. Пробуем получить токен из Cookie
+		// 2. Пробуем получить токен ТОЛЬКО из Cookie (без fallback)
 		var tokenString string
 		if cookie, err := r.Cookie(AuthCookieName); err == nil {
 			tokenString = cookie.Value
 			log.Printf("AuthMiddleware: Found auth cookie, value length: %d", len(tokenString)) // Для отладки
 		} else {
 			log.Printf("AuthMiddleware: No auth cookie found in request: %v", err) // Для отладки
+			// Не пытаемся получить токен из заголовка Authorization
 		}
 
-		// 3. Fallback: пробуем получить токен из заголовка Authorization (Bearer)
-		if tokenString == "" {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader != "" {
-				tokenString = strings.TrimPrefix(authHeader, "Bearer ")
-				if tokenString == authHeader {
-					tokenString = "" // Не в правильном формате
-				}
-				if tokenString != "" {
-					log.Printf("AuthMiddleware: Found auth token in Authorization header, length: %d", len(tokenString)) // Для отладки
-				}
-			}
-		}
-
-		// 4. Если токен найден, проверяем его
+		// 3. Если токен найден в cookie, проверяем его
 		if tokenString != "" {
 			jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
 			if claims, err := jwtManager.VerifyToken(tokenString); err == nil {
@@ -123,40 +109,51 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				authCtx.User = claims
 			} else {
 				log.Printf("AuthMiddleware: Invalid or expired token: %v", err) // Для отладки
-				// Опционально: можно очищать cookie здесь, если токен невалиден
-				// authCtx.ShouldClearCookie = true // <-- Добавить, если нужно
+				// Опционально: можно сигнализировать об очистке cookie, если токен невалиден
+				// Это приведет к удалению недействительного cookie
+				// authCtx.ShouldClearCookie = true 
 			}
 		} else {
-			log.Println("AuthMiddleware: No token found to verify") // Для отладки
+			log.Println("AuthMiddleware: No token found in cookie to verify") // Для отладки
 		}
 
-		// 5. Кладем AuthContext в контекст запроса
+		// 4. Кладем AuthContext в контекст запроса
 		ctxWithAuth := context.WithValue(r.Context(), authContextKey, authCtx)
 		log.Printf("AuthMiddleware [BEFORE]: Put AuthContext %p into context with key %v", authCtx, authContextKey) // Для отладки
 		rWithAuth := r.WithContext(ctxWithAuth)
 
-		// 6. Передаем управление следующему обработчику (srv)
+		// 5. Передаем управление следующему обработчику (srv)
 		log.Println("AuthMiddleware: Calling next (GraphQL handler)") // Для отладки
 		next.ServeHTTP(w, rWithAuth)
 		log.Println("AuthMiddleware: Returned from next (GraphQL handler)") // Для отладки
 
 		// --- ВАЖНО: Код ниже выполняется ПОСЛЕ завершения next.ServeHTTP ---
-		// Здесь мы должны получить обновленный AuthContext из контекста запроса.
+		// Здесь мы получаем обновленный AuthContext ИЗ КОНТЕКСТА ЗАПРОСА.
 
-		// 7. ПОЛУЧАЕМ потенциально обновленный AuthContext ИЗ КОНТЕКСТА ЗАПРОСА
-		// Это ключевое изменение: мы получаем его из rWithAuth.Context(), а не используем оригинальную переменную authCtx
-		updatedAuthCtx, ok := rWithAuth.Context().Value(authContextKey).(*AuthContext)
+		// 6. ПОЛУЧАЕМ потенциально обновленный AuthContext ИЗ КОНТЕКСТА ЗАПРОСА
+		// Мы используем контекст из оригинального запроса r, так как rWithAuth.Context() 
+		// это тот же самый контекст, просто с добавленным значением.
+		// Использование r.Context() здесь является более стандартным способом.
+		// updatedAuthCtx, ok := rWithAuth.Context().Value(authContextKey).(*AuthContext) // Старый способ
+		updatedAuthCtx, ok := r.Context().Value(authContextKey).(*AuthContext) // Новый способ
 		if !ok {
 			log.Println("AuthMiddleware [AFTER]: ERROR - Could not retrieve AuthContext from request context after handler execution")
-			// Что-то пошло не так, контекст был изменен или поврежден.
-			// Лучше ничего не делать с cookie или вернуть ошибку.
-			// Для простоты просто выходим.
-			return
+			// Что-то пошло не так. Лучше ничего не делать с cookie.
+			return // Выходим, не устанавливая/удаляя cookie
 		}
-		log.Printf("AuthMiddleware [AFTER]: Retrieved updated AuthContext at %p (was originally %p)", updatedAuthCtx, authCtx) // Для отладки
+		
+		// Проверим, что это тот же самый AuthContext, что мы создали в начале
+		// (Просто для отладки, можно убрать)
+		if updatedAuthCtx != authCtx {
+			log.Printf("AuthMiddleware [AFTER]: WARNING - Retrieved AuthContext (%p) is NOT the same instance as the original (%p)", updatedAuthCtx, authCtx)
+		} else {
+			log.Printf("AuthMiddleware [AFTER]: Confirmed - Retrieved AuthContext (%p) is the same instance as the original", updatedAuthCtx)
+		}
+		
+		log.Printf("AuthMiddleware [AFTER]: Retrieved updated AuthContext at %p", updatedAuthCtx) // Для отладки
 		log.Printf("AuthMiddleware [AFTER]: State - User: %v, ShouldSet: %v, Token Length: %d, ShouldClear: %v", updatedAuthCtx.User != nil, updatedAuthCtx.ShouldSetCookie, len(updatedAuthCtx.TokenToSet), updatedAuthCtx.ShouldClearCookie) // Для отладки
 
-		// 8. Выполняем действия с cookie на основе сигналов из обновленного контекста
+		// 7. Выполняем действия с cookie на основе сигналов из обновленного контекста
 		if updatedAuthCtx.ShouldClearCookie {
 			log.Println("AuthMiddleware [AFTER]: CLEARING cookie") // Для отладки
 			http.SetCookie(w, &http.Cookie{

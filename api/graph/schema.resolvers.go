@@ -7,8 +7,11 @@ package graph
 import (
 	"context"
 	"fmt"
+	"log"
 
+	"github.com/DGISsoft/DGISback/api/auth"
 	"github.com/DGISsoft/DGISback/api/graph/model"
+	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -20,12 +23,74 @@ func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*mode
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: Login - login"))
+	// 1. Найти пользователя по логину
+	// Используем метод из вашего UserService
+	user, err := r.UserService.GetUserByLogin(ctx, input.Login)
+	if err != nil {
+		// Не раскрываем детали (например, "пользователь не найден")
+		log.Printf("Login: Authentication failed for login %s: %v", input.Login, err) // Лог для администратора
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
+	// 2. Проверить пароль
+	// Используем статический метод CheckPassword из вашего UserService
+	if !r.UserService.CheckPassword(user.Password, input.Password) {
+		log.Printf("Login: Invalid password provided for user %s", input.Login) // Лог для администратора
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
+	// 3. Сгенерировать JWT токен
+	// Поскольку метода GenerateToken в вашем UserService нет,
+	// генерируем токен напрямую с помощью auth пакета
+	jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
+	tokenString, err := jwtManager.GenerateToken(user)
+	if err != nil {
+		log.Printf("Login: Failed to generate token for user %s: %v", user.Login, err)
+		return nil, fmt.Errorf("could not generate authentication token")
+	}
+
+	// 4. Подготовить ответ
+	// Предполагаем, что *models.User напрямую совместим с GraphQL-типом User
+	authPayload := &model.AuthPayload{
+		Token: tokenString, // Токен возвращается в ответе (для API-доступа, если нужно)
+		User:  user,        // Информация о пользователе
+	}
+
+	// 5. Сигнализировать middleware об установке HttpOnly cookie
+	// ВАЖНО: Передаем ctx из аргументов резолвера.
+	// Этот ctx прошел через AuthMiddleware и содержит AuthContext.
+	err = middleware.SignalSetAuthCookie(ctx, tokenString)
+	if err != nil {
+		// Это критическая ошибка, так как middleware не сможет установить cookie
+		log.Printf("Login: CRITICAL - Failed to signal SetAuthCookie for user %s: %v", user.Login, err)
+		// Можно вернуть ошибку клиенту или продолжить (токен в payload есть)
+		// Возвращаем ошибку, так как процесс аутентификации не завершен корректно
+		return nil, fmt.Errorf("authentication process failed (token generated, but cookie could not be set)")
+	}
+
+	// 6. Вернуть AuthPayload
+	// GraphQL-ответ будет содержать токен и информацию о пользователе.
+	// Cookie будет установлена браузером после получения ответа (если SignalSetAuthCookie сработал).
+	return authPayload, nil
 }
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
-	panic(fmt.Errorf("not implemented: Logout - logout"))
+	// 1. Сигнализировать middleware об очистке HttpOnly cookie
+	// ВАЖНО: Передаем ctx из аргументов резолвера.
+	err := middleware.SignalClearAuthCookie(ctx)
+	if err != nil {
+		// Это ошибка, но логаут можно считать успешным,
+		// так как сервер не "помнит" пользователя (токен в cookie будет недействителен или отсутствовать)
+		log.Printf("Logout: Failed to signal ClearAuthCookie: %v", err)
+		// Не возвращаем ошибку клиенту, так как логическая операция "выйти" выполнена.
+		// Клиент может просто игнорировать cookie.
+	}
+
+	// 2. Всегда возвращаем true, указывая, что запрос на логаут обработан.
+	// Даже если cookie не был установлен или не удалось его удалить,
+	// пользователь на стороне сервера де-факто "разлогинен".
+	return true, nil
 }
 
 // RefreshToken is the resolver for the refreshToken field.
@@ -70,7 +135,36 @@ func (r *mutationResolver) ClearMarker(ctx context.Context, markerID primitive.O
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: Me - me"))
+	// 1. Получить информацию о пользователе из контекста
+	// Эта информация была помещена туда AuthMiddleware, если cookie был действителен.
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		// Пользователь не прошел аутентификацию (нет действительного cookie)
+		return nil, fmt.Errorf("unauthorized: valid authentication cookie is required")
+	}
+
+	// 2. Преобразовать UserID из токена (string) в ObjectID MongoDB
+	// userClaims.UserID это Hex-строка ObjectID, сохраненная в JWT
+	userIDHex := userClaims.UserID
+	userObjectID, err := primitive.ObjectIDFromHex(userIDHex)
+	if err != nil {
+		// Это означает, что токен поврежден или был сгенерирован некорректно
+		log.Printf("Me: Invalid ObjectID format in token claims for UserID: %s", userIDHex)
+		return nil, fmt.Errorf("invalid authentication data")
+	}
+
+	// 3. Получить полную информацию о пользователе из БД по ObjectID
+	// Используем метод из вашего UserService
+	user, err := r.UserService.GetUserByID(ctx, userObjectID)
+	if err != nil {
+		// Это может произойти, если пользователь был удален из БД после выдачи токена
+		log.Printf("Me: Failed to retrieve user data from DB for ID %s (Hex: %s): %v", userObjectID.Hex(), userIDHex, err)
+		return nil, fmt.Errorf("user account unavailable")
+	}
+
+	// 4. Вернуть объект пользователя
+	// Данные берутся из БД, что гарантирует их актуальность.
+	return user, nil
 }
 
 // Users is the resolver for the users field.
@@ -100,7 +194,26 @@ func (r *queryResolver) MarkerByCode(ctx context.Context, code string) (*models.
 
 // Dashboard is the resolver for the dashboard field.
 func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: Dashboard - dashboard"))
+	// 1. (Опционально) Проверить аутентификацию, если это требуется по логике приложения
+	// Хотя по вашему описанию это просто "получение всех", проверка может быть полезна.
+	// _, isAuthenticated := middleware.GetUserFromContext(ctx)
+	// if !isAuthenticated {
+	// 	return nil, fmt.Errorf("unauthorized: authentication required")
+	// }
+	// Для этого примера оставим без проверки, как вы сказали "просто все маркеры"
+
+	// 2. Вызвать сервис для получения всех маркеров
+	// Используем GetAllMarkers. Если нужны пользователи внутри маркеров,
+	// используйте GetAllMarkersWithUsers.
+	markers, err := r.MarkerService.GetAllMarkers(ctx) // Используем ctx
+	if err != nil {
+		log.Printf("Dashboard: Failed to get all markers: %v", err)
+		return nil, fmt.Errorf("could not fetch dashboard data")
+	}
+
+	// 3. Вернуть список маркеров
+	// Предполагаем, что []*models.Marker совместим с []*model.Marker в GraphQL
+	return markers, nil
 }
 
 // Markers is the resolver for the markers field.

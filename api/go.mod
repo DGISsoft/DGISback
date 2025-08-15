@@ -12,8 +12,8 @@ require (
 
 require (
 	github.com/DGISsoft/DGISback/middleware v0.0.0-20250814153110-aac82708c6ce
-	github.com/DGISsoft/DGISback/models v0.0.0-20250814153110-aac82708c6ce
-	github.com/DGISsoft/DGISback/services v0.0.0-20250815031218-a8d98a14611b
+	github.com/DGISsoft/DGISback/models v0.0.0-20250815031218-a8d98a14611b
+	github.com/DGISsoft/DGISback/services v0.0.0-20250815032357-4b3f2dcbad92
 )
 
 require (

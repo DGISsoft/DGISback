@@ -72,11 +72,8 @@ type rawMarkerWithUsers struct {
 	MarkerID        string               `bson:"markerId"`
 	Position        []float64            `bson:"position"`
 	Label           string               `bson:"label"`
-	AssignedUserIds []primitive.ObjectID `bson:"assignedUserIds"`        // Оригинальное поле
-	UsersRaw        []bson.Raw           `bson:"users"`                  // Результат $lookup как сырые BSON документы
-	// Или, если вы уверены, что models.User совместим, можно использовать
-	// UsersRaw        []models.User       `bson:"users"` 
-	// Но bson.Raw более гибкий и безопасный для промежуточного шага.
+	AssignedUserIds []primitive.ObjectID `bson:"assignedUserIds"`
+	UsersRaw        []bson.Raw           `bson:"users"` 
 }
 
 func (s *MarkerService) GetAllMarkersWithUsers(ctx context.Context) ([]*models.Marker, error) {
@@ -113,7 +110,6 @@ func (s *MarkerService) GetAllMarkersWithUsers(ctx context.Context) ([]*models.M
 			MarkerID: rawMarker.MarkerID,
 			Position: rawMarker.Position,
 			Label:    rawMarker.Label,
-			// AssignedUserIds: rawMarker.AssignedUserIds, // Если нужно
 		}
 
 		// 2. Преобразуем []bson.Raw в []*models.User
@@ -130,26 +126,13 @@ func (s *MarkerService) GetAllMarkersWithUsers(ctx context.Context) ([]*models.M
 			}
 			users[j] = &user
 		}
-		// Убираем nil значения, если были ошибки декодирования
-		// (Это не обязательно, если мы уверены в данных)
-		// filteredUsers := []*models.User{}
-		// for _, u := range users { if u != nil { filteredUsers = append(filteredUsers, u) } }
-		// marker.Users = filteredUsers
+
 		
 		marker.Users = users
 
 		resultMarkers[i] = marker
 
-		// --- Логирование для проверки ---
-		// if i < 3 {
-		// 	log.Printf("Marker [%d] Converted - ID: %s, Label: %s, Users (len): %d", 
-		// 		i, marker.ID.Hex(), marker.Label, len(marker.Users))
-		// 	if len(marker.Users) > 0 && marker.Users[0] != nil {
-		// 		log.Printf("Marker [%d] First User - ID: %s, Name: %s", 
-		// 			i, marker.Users[0].ID.Hex(), marker.Users[0].FullName)
-		// 	}
-		// }
-		// --- Конец логирования ---
+
 	}
 
 	log.Printf("GetAllMarkersWithUsers: Successfully converted to %d final markers", len(resultMarkers))
@@ -157,7 +140,6 @@ func (s *MarkerService) GetAllMarkersWithUsers(ctx context.Context) ([]*models.M
 }
 
 func (s *MarkerService) AssignUserToMarker(ctx context.Context, userID, markerID primitive.ObjectID) error {
-	// Обновляем маркер - добавляем пользователя
 	markerCollection := s.GetCollection("markers")
 	_, err := markerCollection.UpdateOne(
 		ctx,
@@ -168,7 +150,6 @@ func (s *MarkerService) AssignUserToMarker(ctx context.Context, userID, markerID
 		return fmt.Errorf("failed to assign user to marker: %w", err)
 	}
 
-	// Обновляем пользователя - добавляем маркер
 	userCollection := s.GetCollection("users")
 	_, err = userCollection.UpdateOne(
 		ctx,
@@ -183,7 +164,7 @@ func (s *MarkerService) AssignUserToMarker(ctx context.Context, userID, markerID
 }
 
 func (s *MarkerService) RemoveUserFromMarker(ctx context.Context, userID, markerID primitive.ObjectID) error {
-	// Обновляем маркер - удаляем пользователя
+
 	markerCollection := s.GetCollection("markers")
 	_, err := markerCollection.UpdateOne(
 		ctx,
@@ -194,7 +175,6 @@ func (s *MarkerService) RemoveUserFromMarker(ctx context.Context, userID, marker
 		return fmt.Errorf("failed to remove user from marker: %w", err)
 	}
 
-	// Обновляем пользователя - удаляем маркер
 	userCollection := s.GetCollection("users")
 	_, err = userCollection.UpdateOne(
 		ctx,
@@ -209,13 +189,11 @@ func (s *MarkerService) RemoveUserFromMarker(ctx context.Context, userID, marker
 }
 
 func (s *MarkerService) ClearAllUsersFromMarker(ctx context.Context, markerID primitive.ObjectID) error {
-	// Получаем маркер для получения всех назначенных пользователей
 	marker, err := s.GetMarkerByID(ctx, markerID)
 	if err != nil {
 		return err
 	}
 
-	// Удаляем этот маркер из всех пользователей
 	if len(marker.Users) > 0 {
 		userCollection := s.GetCollection("users")
 		_, err = userCollection.UpdateMany(
@@ -228,7 +206,6 @@ func (s *MarkerService) ClearAllUsersFromMarker(ctx context.Context, markerID pr
 		}
 	}
 
-	// Очищаем список пользователей в маркере
 	markerCollection := s.GetCollection("markers")
 	_, err = markerCollection.UpdateOne(
 		ctx,

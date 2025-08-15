@@ -42,7 +42,6 @@ type Config struct {
 }
 
 type ResolverRoot interface {
-	Marker() MarkerResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 	User() UserResolver
@@ -104,9 +103,6 @@ type ComplexityRoot struct {
 	}
 }
 
-type MarkerResolver interface {
-	Users(ctx context.Context, obj *models.Marker) ([]*models.User, error)
-}
 type MutationResolver interface {
 	Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error)
 	Logout(ctx context.Context) (bool, error)
@@ -1073,7 +1069,7 @@ func (ec *executionContext) _Marker_users(ctx context.Context, field graphql.Col
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Marker().Users(rctx, obj)
+		return obj.Users, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1094,8 +1090,8 @@ func (ec *executionContext) fieldContext_Marker_users(_ context.Context, field g
 	fc = &graphql.FieldContext{
 		Object:     "Marker",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -5021,59 +5017,28 @@ func (ec *executionContext) _Marker(ctx context.Context, sel ast.SelectionSet, o
 		case "id":
 			out.Values[i] = ec._Marker_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "markerId":
 			out.Values[i] = ec._Marker_markerId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "position":
 			out.Values[i] = ec._Marker_position(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "label":
 			out.Values[i] = ec._Marker_label(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "users":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Marker_users(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
+			out.Values[i] = ec._Marker_users(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

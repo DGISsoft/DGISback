@@ -18,29 +18,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// Users is the resolver for the users field.
-func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*models.User, error) {
-	// Если список ID пуст, возвращаем пустой срез
-	if len(obj.Users) == 0 {
-		return []*models.User{}, nil
-	}
-
-	// Создаем фильтр для поиска пользователей по списку ID
-	filter := bson.M{"_id": bson.M{"$in": obj.Users}}
-
-	collection := r.UserService.GetCollection("users") // Предполагаем доступ к коллекции
-	var users []*models.User
-
-	// Выполняем запрос
-	err := query.FindMany(ctx, collection, filter, &users)
-	if err != nil {
-		log.Printf("markerResolver.Users: Failed to get users for marker %s: %v", obj.ID.Hex(), err)
-		return nil, fmt.Errorf("could not load users for marker")
-	}
-
-	return users, nil
-}
-
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
 	// 1. Найти пользователя по логину
@@ -243,19 +220,38 @@ func (r *queryResolver) MarkerByCode(ctx context.Context, code string) (*models.
 
 // Dashboard is the resolver for the dashboard field.
 func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error) {
-	// 1. Получить ВСЕ маркеры из базы данных ВМЕСТЕ С НАЗНАЧЕННЫМИ ПОЛЬЗОВАТЕЛЯМИ
-	// Используем метод из вашего MarkerService, который делает $lookup
-	// Это один агрегационный запрос к БД
-	markers, err := r.MarkerService.GetAllMarkersWithUsers(ctx) // <-- Изменено здесь
+	log.Println("Dashboard resolver called")
+
+	markers, err := r.MarkerService.GetAllMarkersWithUsers(ctx)
 	if err != nil {
-		// Ошибка на стороне сервера при доступе к БД
 		log.Printf("Dashboard: Failed to retrieve all markers with users from DB: %v", err)
 		return nil, fmt.Errorf("could not load dashboard data")
 	}
 
-	// 2. Вернуть список маркеров
-	// []*models.Marker (с заполненным полем .Users) должно быть совместимо
-	// с []*model.Marker в GraphQL-схеме
+	log.Printf("Dashboard: Successfully retrieved %d markers from service", len(markers))
+	
+	// --- КРИТИЧЕСКОЕ ОТЛАДОЧНОЕ ЛОГИРОВАНИЕ ---
+	// Проверим, действительно ли поле Users заполнено в возвращаемых данных
+	if len(markers) > 0 {
+		firstMarker := markers[0]
+		log.Printf("Dashboard: First marker ID: %s, Label: %s", firstMarker.ID.Hex(), firstMarker.Label)
+		log.Printf("Dashboard: First marker Users field length: %d", len(firstMarker.Users))
+		if len(firstMarker.Users) > 0 {
+			firstUser := firstMarker.Users[0]
+			if firstUser != nil {
+				log.Printf("Dashboard: First marker's first user ID: %s, Name: %s", firstUser.ID.Hex(), firstUser.FullName)
+			} else {
+				log.Println("Dashboard: WARNING: First marker's first user is NIL")
+			}
+		} else {
+			log.Println("Dashboard: First marker has NO users")
+			// Давайте проверим, есть ли AssignedUserIds и что там
+			// (если вы оставили это поле в models.Marker)
+			// log.Printf("Dashboard: First marker AssignedUserIds: %v", firstMarker.AssignedUserIds) 
+		}
+	}
+	// --- КОНЕЦ ОТЛАДОЧНОГО ЛОГИРОВАНИЯ ---
+
 	return markers, nil
 }
 
@@ -293,9 +289,6 @@ func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models
 	return markers, nil
 }
 
-// Marker returns MarkerResolver implementation.
-func (r *Resolver) Marker() MarkerResolver { return &markerResolver{r} }
-
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -305,7 +298,38 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 // User returns UserResolver implementation.
 func (r *Resolver) User() UserResolver { return &userResolver{r} }
 
-type markerResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*models.User, error) {
+	// Если список ID пуст, возвращаем пустой срез
+	if len(obj.Users) == 0 {
+		return []*models.User{}, nil
+	}
+
+	// Создаем фильтр для поиска пользователей по списку ID
+	filter := bson.M{"_id": bson.M{"$in": obj.Users}}
+
+	collection := r.UserService.GetCollection("users") // Предполагаем доступ к коллекции
+	var users []*models.User
+
+	// Выполняем запрос
+	err := query.FindMany(ctx, collection, filter, &users)
+	if err != nil {
+		log.Printf("markerResolver.Users: Failed to get users for marker %s: %v", obj.ID.Hex(), err)
+		return nil, fmt.Errorf("could not load users for marker")
+	}
+
+	return users, nil
+}
+func (r *Resolver) Marker() MarkerResolver { return &markerResolver{r} }
+type markerResolver struct{ *Resolver }
+*/

@@ -3,7 +3,7 @@ module github.com/DGISsoft/DGISback/services
 go 1.24.0
 
 require (
-	github.com/DGISsoft/DGISback/models v0.0.0-20250814135221-891a64970062
+	github.com/DGISsoft/DGISback/models v0.0.0-20250815031218-a8d98a14611b
 	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.17.4
 	golang.org/x/crypto v0.41.0

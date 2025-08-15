@@ -20,25 +20,25 @@ import (
 
 // Users is the resolver for the users field.
 func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*models.User, error) {
-    // Если список ID пуст, возвращаем пустой срез
-    if len(obj.Users) == 0 {
-        return []*models.User{}, nil
-    }
+	// Если список ID пуст, возвращаем пустой срез
+	if len(obj.Users) == 0 {
+		return []*models.User{}, nil
+	}
 
-    // Создаем фильтр для поиска пользователей по списку ID
-    filter := bson.M{"_id": bson.M{"$in": obj.Users}}
+	// Создаем фильтр для поиска пользователей по списку ID
+	filter := bson.M{"_id": bson.M{"$in": obj.Users}}
 
-    collection := r.UserService.GetCollection("users") // Предполагаем доступ к коллекции
-    var users []*models.User
+	collection := r.UserService.GetCollection("users") // Предполагаем доступ к коллекции
+	var users []*models.User
 
-    // Выполняем запрос
-    err := query.FindMany(ctx, collection, filter, &users)
-    if err != nil {
-        log.Printf("markerResolver.Users: Failed to get users for marker %s: %v", obj.ID.Hex(), err)
-        return nil, fmt.Errorf("could not load users for marker")
-    }
+	// Выполняем запрос
+	err := query.FindMany(ctx, collection, filter, &users)
+	if err != nil {
+		log.Printf("markerResolver.Users: Failed to get users for marker %s: %v", obj.ID.Hex(), err)
+		return nil, fmt.Errorf("could not load users for marker")
+	}
 
-    return users, nil
+	return users, nil
 }
 
 // Login is the resolver for the login field.
@@ -261,11 +261,10 @@ func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error)
 
 // Markers is the resolver for the markers field.
 func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error) {
-	
-	// 1. Оптимизация: если у пользователя нет назначенных маркеров, 
+	// 1. Оптимизация: если у пользователя нет назначенных маркеров,
 	// сразу возвращаем пустой список.
 	// Это справедливо для PREDSEDATEL и DGIS.
-	if len(obj.Markers) == 0 { 
+	if len(obj.Markers) == 0 {
 		return []*models.Marker{}, nil
 	}
 
@@ -281,13 +280,13 @@ func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models
 	// 4. Выполняем запрос к БД
 	var markers []*models.Marker
 	// Используем ваш пакет query для поиска нескольких документов
-	err := query.FindMany(ctx, markerCollection, filter, &markers) 
+	err := query.FindMany(ctx, markerCollection, filter, &markers)
 	if err != nil {
 		// Логируем ошибку
 		log.Printf("userResolver.Markers: DB error for user %s (%s): %v", obj.Login, obj.ID.Hex(), err)
-		// Возвращаем пустой список вместо паники/ошибки, 
+		// Возвращаем пустой список вместо паники/ошибки,
 		// чтобы не ломать весь запрос `me` из-за одной части.
-		return []*models.Marker{}, nil 
+		return []*models.Marker{}, nil
 	}
 
 	// 5. Возвращаем найденные маркеры

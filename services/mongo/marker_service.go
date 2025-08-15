@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/DGISsoft/DGISback/models"
 	"github.com/DGISsoft/DGISback/services/mongo/query"
@@ -66,28 +67,93 @@ func (s *MarkerService) CreateMarker(ctx context.Context, marker *models.Marker)
 	return nil
 }
 
+type rawMarkerWithUsers struct {
+	ID              primitive.ObjectID   `bson:"_id,omitempty"`
+	MarkerID        string               `bson:"markerId"`
+	Position        []float64            `bson:"position"`
+	Label           string               `bson:"label"`
+	AssignedUserIds []primitive.ObjectID `bson:"assignedUserIds"`        // Оригинальное поле
+	UsersRaw        []bson.Raw           `bson:"users"`                  // Результат $lookup как сырые BSON документы
+	// Или, если вы уверены, что models.User совместим, можно использовать
+	// UsersRaw        []models.User       `bson:"users"` 
+	// Но bson.Raw более гибкий и безопасный для промежуточного шага.
+}
+
 func (s *MarkerService) GetAllMarkersWithUsers(ctx context.Context) ([]*models.Marker, error) {
 	collection := s.GetCollection("markers")
-	var markers []*models.Marker
+	// Используем промежуточный тип для декодирования
+	var rawMarkers []*rawMarkerWithUsers
 
-	// Агрегация для получения маркеров с пользователями
 	pipeline := []bson.M{
 		{
 			"$lookup": bson.M{
 				"from":         "users",
-				"localField":   "assignedUserIds",
-				"foreignField": "_id",
-				"as":           "users",
+				"localField":   "assignedUserIds", // Источник связей
+				"foreignField": "_id",             // Поле в коллекции users
+				"as":           "users",           // Имя поля для результата
 			},
 		},
 	}
 
-	err := query.Aggregate(ctx, collection, pipeline, &markers)
+	log.Println("GetAllMarkersWithUsers: Executing aggregation pipeline...")
+	err := query.Aggregate(ctx, collection, pipeline, &rawMarkers)
 	if err != nil {
+		log.Printf("GetAllMarkersWithUsers: Aggregation failed: %v", err)
 		return nil, fmt.Errorf("failed to get markers with users: %w", err)
 	}
 
-	return markers, nil
+	log.Printf("GetAllMarkersWithUsers: Successfully retrieved %d raw markers", len(rawMarkers))
+
+	// Преобразуем сырые данные в модели
+	resultMarkers := make([]*models.Marker, len(rawMarkers))
+	for i, rawMarker := range rawMarkers {
+		// 1. Создаем экземпляр models.Marker
+		marker := &models.Marker{
+			ID:       rawMarker.ID,
+			MarkerID: rawMarker.MarkerID,
+			Position: rawMarker.Position,
+			Label:    rawMarker.Label,
+			// AssignedUserIds: rawMarker.AssignedUserIds, // Если нужно
+		}
+
+		// 2. Преобразуем []bson.Raw в []*models.User
+		users := make([]*models.User, len(rawMarker.UsersRaw))
+		for j, userRaw := range rawMarker.UsersRaw {
+			var user models.User
+			// Декодируем bson.Raw в models.User
+			err := bson.Unmarshal(userRaw, &user)
+			if err != nil {
+				log.Printf("GetAllMarkersWithUsers: Failed to unmarshal user [%d] for marker [%d] (%s): %v", j, i, rawMarker.ID.Hex(), err)
+				// Можно либо пропустить пользователя, либо вернуть ошибку
+				// Пока пропустим
+				continue
+			}
+			users[j] = &user
+		}
+		// Убираем nil значения, если были ошибки декодирования
+		// (Это не обязательно, если мы уверены в данных)
+		// filteredUsers := []*models.User{}
+		// for _, u := range users { if u != nil { filteredUsers = append(filteredUsers, u) } }
+		// marker.Users = filteredUsers
+		
+		marker.Users = users
+
+		resultMarkers[i] = marker
+
+		// --- Логирование для проверки ---
+		// if i < 3 {
+		// 	log.Printf("Marker [%d] Converted - ID: %s, Label: %s, Users (len): %d", 
+		// 		i, marker.ID.Hex(), marker.Label, len(marker.Users))
+		// 	if len(marker.Users) > 0 && marker.Users[0] != nil {
+		// 		log.Printf("Marker [%d] First User - ID: %s, Name: %s", 
+		// 			i, marker.Users[0].ID.Hex(), marker.Users[0].FullName)
+		// 	}
+		// }
+		// --- Конец логирования ---
+	}
+
+	log.Printf("GetAllMarkersWithUsers: Successfully converted to %d final markers", len(resultMarkers))
+	return resultMarkers, nil
 }
 
 func (s *MarkerService) AssignUserToMarker(ctx context.Context, userID, markerID primitive.ObjectID) error {

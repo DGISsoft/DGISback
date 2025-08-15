@@ -124,12 +124,57 @@ func (r *mutationResolver) AddMarker(ctx context.Context, input model.CreateMark
 
 // AssignUser is the resolver for the assignUser field.
 func (r *mutationResolver) AssignUser(ctx context.Context, input model.AssignUserInput) (*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: AssignUser - assignUser"))
+	// 1. ID уже типа primitive.ObjectID, конвертация не нужна
+	userID := input.UserID
+	markerID := input.MarkerID
+
+	// 2. Вызываем метод сервиса для назначения пользователя
+	// Предполагается, что у MarkerService есть такой метод
+	err := r.MarkerService.AssignUserToMarker(ctx, userID, markerID)
+	if err != nil {
+		log.Printf("AssignUser: Failed to assign user %s to marker %s: %v", userID.Hex(), markerID.Hex(), err)
+		// Можно возвращать более конкретные ошибки GraphQL, если нужно
+		return nil, fmt.Errorf("could not assign user to marker: %w", err)
+	}
+
+	// 3. Получаем обновленный маркер из БД
+	updatedMarker, err := r.MarkerService.GetMarkerByID(ctx, markerID)
+	if err != nil {
+		log.Printf("AssignUser: Failed to get updated marker %s: %v", markerID.Hex(), err)
+		// Это не критично для мутации, но клиент не получит обновленные данные
+		// Можно вернуть ошибку или пустой маркер
+		return nil, fmt.Errorf("failed to fetch updated marker data")
+	}
+
+	// 4. Возвращаем обновленный маркер
+	// Убедитесь, что поле Users заполнено, если клиент ожидает его
+	// (например, через GetAllMarkersWithUsers или отдельный запрос)
+	return updatedMarker, nil
 }
 
 // RemoveUser is the resolver for the removeUser field.
 func (r *mutationResolver) RemoveUser(ctx context.Context, input model.RemoveUserInput) (*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: RemoveUser - removeUser"))
+	// 1. ID уже типа primitive.ObjectID, конвертация не нужна
+	userID := input.UserID
+	markerID := input.MarkerID
+
+	// 2. Вызываем метод сервиса для удаления пользователя
+	// Предполагается, что у MarkerService есть такой метод
+	err := r.MarkerService.RemoveUserFromMarker(ctx, userID, markerID)
+	if err != nil {
+		log.Printf("RemoveUser: Failed to remove user %s from marker %s: %v", userID.Hex(), markerID.Hex(), err)
+		return nil, fmt.Errorf("could not remove user from marker: %w", err)
+	}
+
+	// 3. Получаем обновленный маркер из БД
+	updatedMarker, err := r.MarkerService.GetMarkerByID(ctx, markerID)
+	if err != nil {
+		log.Printf("RemoveUser: Failed to get updated marker %s: %v", markerID.Hex(), err)
+		return nil, fmt.Errorf("failed to fetch updated marker data")
+	}
+
+	// 4. Возвращаем обновленный маркер
+	return updatedMarker, nil
 }
 
 // AssignMany is the resolver for the assignMany field.
@@ -153,26 +198,21 @@ func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
 	}
 
 	// 2. Преобразовать UserID из токена (string) в ObjectID MongoDB
-	// userClaims.UserID это Hex-строка ObjectID, сохраненная в JWT
 	userIDHex := userClaims.UserID
 	userObjectID, err := primitive.ObjectIDFromHex(userIDHex)
 	if err != nil {
-		// Это означает, что токен поврежден или был сгенерирован некорректно
-		log.Printf("Me: Invalid ObjectID format in token claims for UserID: %s", userIDHex)
+		log.Printf("Me: Invalid ObjectID format in token for UserID: %s", userIDHex)
 		return nil, fmt.Errorf("invalid authentication data")
 	}
 
 	// 3. Получить полную информацию о пользователе из БД по ObjectID
-	// Используем метод из вашего UserService
 	user, err := r.UserService.GetUserByID(ctx, userObjectID)
 	if err != nil {
-		// Это может произойти, если пользователь был удален из БД после выдачи токена
-		log.Printf("Me: Failed to retrieve user data from DB for ID %s (Hex: %s): %v", userObjectID.Hex(), userIDHex, err)
+		log.Printf("Me: Failed to get user data for ID %s: %v", userIDHex, err)
 		return nil, fmt.Errorf("user account unavailable")
 	}
 
 	// 4. Вернуть объект пользователя
-	// Данные берутся из БД, что гарантирует их актуальность.
 	return user, nil
 }
 
@@ -221,7 +261,37 @@ func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error)
 
 // Markers is the resolver for the markers field.
 func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: Markers - markers"))
+	
+	// 1. Оптимизация: если у пользователя нет назначенных маркеров, 
+	// сразу возвращаем пустой список.
+	// Это справедливо для PREDSEDATEL и DGIS.
+	if len(obj.Markers) == 0 { 
+		return []*models.Marker{}, nil
+	}
+
+	// 2. Для STAROSTA/SUPERVISOR: получаем маркеры из БД.
+	// Создаем фильтр для поиска маркеров по списку ID из obj.Markers
+	filter := bson.M{"_id": bson.M{"$in": obj.Markers}}
+
+	// 3. Получаем коллекцию маркеров.
+	// Предполагается, что *resolver (r) имеет доступ к MarkerService.
+	// Убедитесь, что в структуре Resolver есть поле *MarkerService.
+	markerCollection := r.MarkerService.GetCollection("markers")
+
+	// 4. Выполняем запрос к БД
+	var markers []*models.Marker
+	// Используем ваш пакет query для поиска нескольких документов
+	err := query.FindMany(ctx, markerCollection, filter, &markers) 
+	if err != nil {
+		// Логируем ошибку
+		log.Printf("userResolver.Markers: DB error for user %s (%s): %v", obj.Login, obj.ID.Hex(), err)
+		// Возвращаем пустой список вместо паники/ошибки, 
+		// чтобы не ломать весь запрос `me` из-за одной части.
+		return []*models.Marker{}, nil 
+	}
+
+	// 5. Возвращаем найденные маркеры
+	return markers, nil
 }
 
 // Marker returns MarkerResolver implementation.

@@ -7,6 +7,45 @@ enum UserRole {
   SUPERVISOR
 }
 
+enum NotificationType {
+  GENERAL
+  PERSONAL
+  SYSTEM
+  ASSIGNMENT
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+type Notification {
+  id: ID!
+  type: NotificationType!
+  title: String!
+  message: String!
+  sender: User! # Ссылка на отправителя
+  recipientIds: [ID!]! # Список ID получателей (для массовых уведомлений)
+  createdAt: Time!
+}
+
+type UserNotification {
+  id: ID!
+  user: User! # Получатель
+  notification: Notification!
+  status: NotificationStatus!
+  readAt: Time
+  createdAt: Time!
+}
+
+input SendNotificationInput {
+  userIds: [ID!]! # Список ID пользователей-получателей
+  title: String!
+  message: String!
+  type: NotificationType
+}
+
 type User {
   id: ID!
   login: String!
@@ -72,6 +111,12 @@ type Query {
   marker(id: ID!): Marker
   markerByCode(code: String!): Marker
   dashboard: [Marker!]!
+  myNotifications(
+    statuses: [NotificationStatus!]
+    limit: Int
+    offset: Int
+  ): [UserNotification!]!
+  unreadNotificationsCount: Int!
 }
 
 type Mutation {
@@ -90,4 +135,8 @@ type Mutation {
   # Массовые операции
   assignMany(markerId: ID!, userIds: [ID!]!): Marker!
   clearMarker(markerId: ID!): Marker!
+
+  deleteNotification(id: ID!): Boolean!
+  sendNotification(input: SendNotificationInput!): Boolean!
+  markNotificationAsRead(id: ID!): Boolean!
 }

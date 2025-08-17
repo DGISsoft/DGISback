@@ -94,13 +94,14 @@ func main() {
 
     userService := serv.NewUserService(mongoService)
     markerService := serv.NewMarkerService(mongoService)
-
+    notificationService := serv.NewNotificationService(mongoService)
     createDefaultAdmin(userService)
 
 
     resolver := &graph.Resolver{
         UserService: userService,
         MarkerService: markerService,
+        NotificationService: notificationService,
     }
     port := os.Getenv("PORT")
     if port == "" {

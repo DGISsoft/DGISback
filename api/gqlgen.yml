@@ -40,3 +40,9 @@ models:
   Marker:
     model:
       - github.com/DGISsoft/DGISback/models.Marker
+  Notification:
+    model:
+      - github.com/DGISsoft/DGISback/models.Notification
+  UserNotification:
+    model:
+      - github.com/DGISsoft/DGISback/models.UserNotification

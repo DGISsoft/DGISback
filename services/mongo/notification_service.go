@@ -104,7 +104,8 @@ func (s *NotificationService) GetUserNotifications(ctx context.Context, userID p
 	}
 
 	var userNotifs []*models.UserNotification
-	err := query.FindManyWithOptions(ctx, collection, filter, &userNotifs, opts)
+	// Используем вашу существующую функцию FindMany с опциями
+	err := query.FindMany(ctx, collection, filter, &userNotifs, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user notifications: %w", err)
 	}

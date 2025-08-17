@@ -48,3 +48,10 @@ type RemoveUserInput struct {
 	UserID   primitive.ObjectID `json:"userId"`
 	MarkerID primitive.ObjectID `json:"markerId"`
 }
+
+type SendNotificationInput struct {
+	UserIds []primitive.ObjectID     `json:"userIds"`
+	Title   string                   `json:"title"`
+	Message string                   `json:"message"`
+	Type    *models.NotificationType `json:"type,omitempty"`
+}

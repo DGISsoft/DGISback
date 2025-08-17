@@ -8,4 +8,5 @@ import "github.com/DGISsoft/DGISback/services/mongo"
 type Resolver struct{
 	UserService *mongo.UserService
 	MarkerService *mongo.MarkerService
+	NotificationService *mongo.NotificationService
 }

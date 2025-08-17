@@ -79,6 +79,9 @@ type Mutation {
   logout: Boolean!
   refreshToken: AuthPayload!
   createUser(input: CreateUserInput!): User!
+    @auth
+    @hasRole(roles: [PREDSEDATEL, DGIS])
+  deleteUser(id: ID!): Boolean! @auth @hasRole(roles: [PREDSEDATEL, DGIS])
   register(input: CreateUserInput!): User!
   addMarker(input: CreateMarkerInput!): Marker!
 

@@ -284,3 +284,16 @@ func (s *MarkerService) ClearAllUsersFromMarker(ctx context.Context, markerID pr
 
 	return nil
 }
+// Добавьте этот метод в MarkerService
+func (s *MarkerService) GetMarkerByLabel(ctx context.Context, label string) (*models.Marker, error) {
+	collection := s.GetCollection("markers")
+	var marker models.Marker
+	filter := bson.M{"label": label}
+
+	err := query.FindOne(ctx, collection, filter, &marker)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get marker by label '%s': %w", label, err)
+	}
+
+	return &marker, nil
+}

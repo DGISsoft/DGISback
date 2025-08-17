@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/DGISsoft/DGISback/api/auth"
 	"github.com/DGISsoft/DGISback/api/graph/model"
@@ -85,8 +86,85 @@ func (r *mutationResolver) RefreshToken(ctx context.Context) (*model.AuthPayload
 }
 
 // CreateUser is the resolver for the createUser field.
+// CreateUser is the resolver for the createUser field.
 func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: CreateUser - createUser"))
+	// 1. Получить информацию о текущем пользователе из контекста (для логирования)
+	// AuthMiddleware уже проверила @auth и @hasRole
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return nil, fmt.Errorf("unauthorized")
+	}
+	log.Printf("CreateUser: Requested by user ID %s", userClaims.UserID)
+
+	// 2. Проверить, существует ли пользователь с таким логином
+	_, err := r.UserService.GetUserByLogin(ctx, input.Login)
+	if err == nil {
+		// Пользователь найден, значит логин занят
+		return nil, fmt.Errorf("user with login '%s' already exists", input.Login)
+	}
+	// Если ошибка "user not found", это нормально и мы можем продолжать
+
+	// 3. Создать объект пользователя из входных данных
+	user := &models.User{
+		Login:       input.Login,
+		Password:    input.Password, // Будет захеширован в сервисе
+		Role:        models.UserRole(input.Role), // Преобразование enum
+		FullName:    input.FullName,
+		Building:    input.Building, // Может быть nil
+		PhoneNumber: input.PhoneNumber,
+		TelegramTag: input.TelegramTag,
+		Markers:     []primitive.ObjectID{}, // Пока без маркеров
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	// 4. Валидация роли (на всякий случай, хотя GraphQL схема это частично проверяет)
+	if !user.Role.IsValid() {
+		return nil, fmt.Errorf("invalid user role: %s", input.Role)
+	}
+
+	// 5. Вызвать сервис для создания пользователя
+	err = r.UserService.CreateUser(ctx, user)
+	if err != nil {
+		log.Printf("CreateUser: Failed to create user in service: %v", err)
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// 6. Автоматическая привязка к маркеру для STAROSTA и SUPERVISOR
+	if user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor {
+		if user.Building != nil && *user.Building != "" {
+			log.Printf("CreateUser: Attempting to auto-assign user %s to marker for building '%s'", user.ID.Hex(), *user.Building)
+			
+			// Найти маркер по label (который соответствует building)
+			marker, err := r.MarkerService.GetMarkerByLabel(ctx, *user.Building)
+			if err != nil {
+				log.Printf("CreateUser: Warning - Could not find marker for building '%s': %v", *user.Building, err)
+				// Не возвращаем ошибку, просто логируем - пользователь создан, но не привязан
+			} else {
+				// Назначить пользователя на найденный маркер
+				err = r.MarkerService.AssignUserToMarker(ctx, user.ID, marker.ID)
+				if err != nil {
+					log.Printf("CreateUser: Warning - Failed to assign user %s to marker %s: %v", user.ID.Hex(), marker.ID.Hex(), err)
+					// Не возвращаем ошибку, просто логируем
+				} else {
+					log.Printf("CreateUser: Successfully assigned user %s to marker %s for building '%s'", user.ID.Hex(), marker.ID.Hex(), *user.Building)
+					// Обновляем список маркеров у пользователя
+					user.Markers = append(user.Markers, marker.ID)
+				}
+			}
+		} else {
+			log.Printf("CreateUser: User %s has role %s but no building specified, skipping auto-assignment", user.ID.Hex(), user.Role)
+		}
+	}
+
+	// 7. Вернуть созданного пользователя (без пароля)
+	user.Password = "" // Убедимся, что пароль не попадет в ответ
+	return user, nil
+}
+
+// DeleteUser is the resolver for the deleteUser field.
+func (r *mutationResolver) DeleteUser(ctx context.Context, id primitive.ObjectID) (bool, error) {
+	panic(fmt.Errorf("not implemented: DeleteUser - deleteUser"))
 }
 
 // Register is the resolver for the register field.
@@ -229,7 +307,7 @@ func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error)
 	}
 
 	log.Printf("Dashboard: Successfully retrieved %d markers from service", len(markers))
-	
+
 	// --- КРИТИЧЕСКОЕ ОТЛАДОЧНОЕ ЛОГИРОВАНИЕ ---
 	// Проверим, действительно ли поле Users заполнено в возвращаемых данных
 	if len(markers) > 0 {
@@ -247,7 +325,7 @@ func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error)
 			log.Println("Dashboard: First marker has NO users")
 			// Давайте проверим, есть ли AssignedUserIds и что там
 			// (если вы оставили это поле в models.Marker)
-			// log.Printf("Dashboard: First marker AssignedUserIds: %v", firstMarker.AssignedUserIds) 
+			// log.Printf("Dashboard: First marker AssignedUserIds: %v", firstMarker.AssignedUserIds)
 		}
 	}
 	// --- КОНЕЦ ОТЛАДОЧНОГО ЛОГИРОВАНИЯ ---
@@ -301,4 +379,3 @@ func (r *Resolver) User() UserResolver { return &userResolver{r} }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
-

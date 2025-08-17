@@ -317,31 +317,69 @@ func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
 
 // Users is the resolver for the users field.
 // Users is the resolver for the users field.
+// Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
 	// 1. Получить информацию о текущем пользователе из контекста
-	// AuthMiddleware уже проверила @auth и @hasRole
+	// AuthMiddleware уже проверила @auth (пользователь аутентифицирован)
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
-		return nil, fmt.Errorf("unauthorized: valid authentication and required role (PREDSEDATEL or DGIS) needed")
+		return nil, fmt.Errorf("unauthorized: valid authentication required")
 	}
 
 	log.Printf("Users query: Requested by user ID %s", userClaims.UserID)
 
-	// 2. Вызвать сервис для получения списка всех пользователей
-	users, err := r.UserService.GetUsers(ctx)
+	// 2. Получить полную информацию о текущем пользователе из БД
+	// Нам нужна роль пользователя для применения фильтра
+	requesterObjectID, err := primitive.ObjectIDFromHex(userClaims.UserID)
+	if err != nil {
+		log.Printf("Users query: Invalid ObjectID format in token for UserID: %s", userClaims.UserID)
+		return nil, fmt.Errorf("invalid authentication data")
+	}
+
+	requester, err := r.UserService.GetUserByID(ctx, requesterObjectID)
+	if err != nil {
+		log.Printf("Users query: Failed to get requester data for ID %s: %v", userClaims.UserID, err)
+		return nil, fmt.Errorf("could not retrieve requester information")
+	}
+
+	// 3. Вызвать сервис для получения списка всех пользователей
+	allUsers, err := r.UserService.GetUsers(ctx)
 	if err != nil {
 		log.Printf("Users query: Failed to retrieve users from service: %v", err)
 		return nil, fmt.Errorf("could not retrieve users list: %w", err)
 	}
 
-	// 3. Очистить пароли перед отправкой (важно для безопасности)
-	for _, user := range users {
+	// 4. Применить фильтрацию в зависимости от роли запрашивающего
+	var filteredUsers []*models.User
+	switch requester.Role {
+	case models.UserRoleDgis:
+		// DGIS видит всех пользователей
+		log.Printf("Users query: DGIS user, returning all %d users", len(allUsers))
+		filteredUsers = allUsers
+	case models.UserRolePredsedatel:
+		// PREDSEDATEL видит только STAROSTA и SUPERVISOR
+		for _, user := range allUsers {
+			if user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor {
+				filteredUsers = append(filteredUsers, user)
+			}
+		}
+		log.Printf("Users query: PREDSEDATEL user, returning %d users (STAROSTA and SUPERVISOR only)", len(filteredUsers))
+	default:
+		// STAROSTA и SUPERVISOR не должны иметь доступа к этому запросу
+		// (это должно быть отфильтровано директивами @auth и @hasRole в схеме)
+		// Но на всякий случай добавим защиту
+		log.Printf("Users query: User with role %s attempted to access users list - this should be blocked by schema directives", requester.Role)
+		return nil, fmt.Errorf("access denied: insufficient permissions to view users list")
+	}
+
+	// 5. Очистить пароли перед отправкой (важно для безопасности)
+	for _, user := range filteredUsers {
 		user.Password = "" // Никогда не отправляем хэши паролей клиенту
 	}
 
-	// 4. Вернуть список пользователей
-	log.Printf("Users query: Successfully retrieved %d users", len(users))
-	return users, nil
+	// 6. Вернуть отфильтрованный список пользователей
+	log.Printf("Users query: Successfully retrieved and filtered %d users for requester %s", len(filteredUsers), userClaims.UserID)
+	return filteredUsers, nil
 }
 
 // User is the resolver for the user field.

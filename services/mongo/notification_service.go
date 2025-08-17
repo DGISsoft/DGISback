@@ -28,10 +28,21 @@ func (s *NotificationService) CreateNotification(ctx context.Context, notif *mod
 	collection := s.GetCollection("notifications")
 	notif.CreatedAt = time.Now()
 
-	_, err := collection.InsertOne(ctx, notif)
+	// --- ИСПРАВЛЕНИЕ ---
+	res, err := collection.InsertOne(ctx, notif)
 	if err != nil {
 		return fmt.Errorf("failed to create notification: %w", err)
 	}
+
+	// Получаем ID вставленного документа и устанавливаем его в объект notif
+	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
+		notif.ID = oid
+		log.Printf("NotificationService: Created notification with ID %s", notif.ID.Hex())
+	} else {
+		// Это маловероятно, но на всякий случай
+		return fmt.Errorf("failed to get inserted notification ID, expected ObjectID, got %T", res.InsertedID)
+	}
+	// --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 	
 	log.Printf("NotificationService: Created notification %s (Title: '%s')", notif.ID.Hex(), notif.Title)
 	return nil

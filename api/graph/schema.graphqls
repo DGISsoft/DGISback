@@ -106,7 +106,6 @@ input LoginInput {
 type Query {
   me: User
   users: [User!]!
-  user(id: ID!): User
   allMarkers: [Marker!]!
   marker(id: ID!): Marker
   markerByCode(code: String!): Marker

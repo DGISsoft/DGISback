@@ -306,7 +306,7 @@ func (r *mutationResolver) DeleteNotification(ctx context.Context, id primitive.
 	}
 
 	if userNotif.UserID != requesterID {
-		log.Printf("DeleteNotification: User %s attempted to delete notification %s (owned by %s)", 
+		log.Printf("DeleteNotification: User %s attempted to delete notification %s (owned by %s)",
 			requesterID.Hex(), id.Hex(), userNotif.UserID.Hex())
 		return false, fmt.Errorf("access denied: you can only delete your own notifications")
 	}
@@ -473,11 +473,6 @@ func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
 	return filteredUsers, nil
 }
 
-// User is the resolver for the user field.
-func (r *queryResolver) User(ctx context.Context, id primitive.ObjectID) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: User - user"))
-}
-
 // AllMarkers is the resolver for the allMarkers field.
 func (r *queryResolver) AllMarkers(ctx context.Context) ([]*models.Marker, error) {
 	panic(fmt.Errorf("not implemented: AllMarkers - allMarkers"))
@@ -627,12 +622,30 @@ func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models
 
 // User is the resolver for the user field.
 func (r *userNotificationResolver) User(ctx context.Context, obj *models.UserNotification) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: User - user"))
+	// obj.UserID содержит ID пользователя, связанного с этим уведомлением
+	user, err := r.UserService.GetUserByID(ctx, obj.UserID)
+	if err != nil {
+		// Логируем ошибку для отладки
+		log.Printf("userNotificationResolver.User: Failed to get user %s: %v", obj.UserID.Hex(), err)
+		// Возвращаем nil и ошибку, это приведет к ошибке GraphQL запроса
+		// Можно также вернуть nil, nil если предпочитаете пропустить это поле
+		return nil, fmt.Errorf("failed to load user for notification: %w", err)
+	}
+	// Убедимся, что пароль не утекает
+	user.Password = ""
+	return user, nil
 }
 
 // Notification is the resolver for the notification field.
+// Загружает полную информацию об уведомлении по NotificationID из UserNotification
 func (r *userNotificationResolver) Notification(ctx context.Context, obj *models.UserNotification) (*models.Notification, error) {
-	panic(fmt.Errorf("not implemented: Notification - notification"))
+	// obj.NotificationID содержит ID уведомления
+	notification, err := r.NotificationService.GetNotificationByID(ctx, obj.NotificationID)
+	if err != nil {
+		log.Printf("userNotificationResolver.Notification: Failed to get notification %s: %v", obj.NotificationID.Hex(), err)
+		return nil, fmt.Errorf("failed to load notification details: %w", err)
+	}
+	return notification, nil
 }
 
 // Mutation returns MutationResolver implementation.

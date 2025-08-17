@@ -101,7 +101,6 @@ type ComplexityRoot struct {
 		Me                       func(childComplexity int) int
 		MyNotifications          func(childComplexity int, statuses []models.NotificationStatus, limit *int, offset *int) int
 		UnreadNotificationsCount func(childComplexity int) int
-		User                     func(childComplexity int, id primitive.ObjectID) int
 		Users                    func(childComplexity int) int
 	}
 
@@ -150,7 +149,6 @@ type NotificationResolver interface {
 type QueryResolver interface {
 	Me(ctx context.Context) (*models.User, error)
 	Users(ctx context.Context) ([]*models.User, error)
-	User(ctx context.Context, id primitive.ObjectID) (*models.User, error)
 	AllMarkers(ctx context.Context) ([]*models.Marker, error)
 	Marker(ctx context.Context, id primitive.ObjectID) (*models.Marker, error)
 	MarkerByCode(ctx context.Context, code string) (*models.Marker, error)
@@ -504,18 +502,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.UnreadNotificationsCount(childComplexity), true
-
-	case "Query.user":
-		if e.complexity.Query.User == nil {
-			break
-		}
-
-		args, err := ec.field_Query_user_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.User(childComplexity, args["id"].(primitive.ObjectID)), true
 
 	case "Query.users":
 		if e.complexity.Query.Users == nil {
@@ -954,17 +940,6 @@ func (ec *executionContext) field_Query_myNotifications_args(ctx context.Context
 		return nil, err
 	}
 	args["offset"] = arg2
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_user_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
 	return args, nil
 }
 
@@ -2691,80 +2666,6 @@ func (ec *executionContext) fieldContext_Query_users(_ context.Context, field gr
 			}
 			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
 		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_user(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_user(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().User(rctx, fc.Args["id"].(primitive.ObjectID))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*models.User)
-	fc.Result = res
-	return ec.marshalOUser2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUser(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_user(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_User_id(ctx, field)
-			case "login":
-				return ec.fieldContext_User_login(ctx, field)
-			case "role":
-				return ec.fieldContext_User_role(ctx, field)
-			case "fullName":
-				return ec.fieldContext_User_fullName(ctx, field)
-			case "building":
-				return ec.fieldContext_User_building(ctx, field)
-			case "phoneNumber":
-				return ec.fieldContext_User_phoneNumber(ctx, field)
-			case "telegramTag":
-				return ec.fieldContext_User_telegramTag(ctx, field)
-			case "markers":
-				return ec.fieldContext_User_markers(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_User_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_User_updatedAt(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_user_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -6614,25 +6515,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "user":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_user(ctx, field)
 				return res
 			}
 

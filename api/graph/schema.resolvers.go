@@ -302,34 +302,3 @@ type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
 
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *markerResolver) Users(ctx context.Context, obj *models.Marker) ([]*models.User, error) {
-	// Если список ID пуст, возвращаем пустой срез
-	if len(obj.Users) == 0 {
-		return []*models.User{}, nil
-	}
-
-	// Создаем фильтр для поиска пользователей по списку ID
-	filter := bson.M{"_id": bson.M{"$in": obj.Users}}
-
-	collection := r.UserService.GetCollection("users") // Предполагаем доступ к коллекции
-	var users []*models.User
-
-	// Выполняем запрос
-	err := query.FindMany(ctx, collection, filter, &users)
-	if err != nil {
-		log.Printf("markerResolver.Users: Failed to get users for marker %s: %v", obj.ID.Hex(), err)
-		return nil, fmt.Errorf("could not load users for marker")
-	}
-
-	return users, nil
-}
-func (r *Resolver) Marker() MarkerResolver { return &markerResolver{r} }
-type markerResolver struct{ *Resolver }
-*/

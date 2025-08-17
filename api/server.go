@@ -14,7 +14,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/DGISsoft/DGISback/api/graph"
 	"github.com/DGISsoft/DGISback/middleware"
-	"github.com/DGISsoft/DGISback/models" // Импортируем models
+	"github.com/DGISsoft/DGISback/models"
 	serv "github.com/DGISsoft/DGISback/services/mongo"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -27,23 +27,20 @@ const defaultPort = "8080"
 // Константы для первого администратора
 const (
     defaultAdminLogin    = "admin"
-    defaultAdminPassword = "admin" // ВАЖНО: Менять на сложный пароль в production!
+    defaultAdminPassword = "admin"
 )
 
-// createDefaultAdmin проверяет, существуют ли пользователи, и создает админа, если их нет.
 func createDefaultAdmin(userService *serv.UserService) {
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
 
-    // Попытка получить список пользователей
     users, err := userService.GetUsers(ctx)
     if err != nil {
         log.Printf("Warning: Failed to check for existing users: %v", err)
-        // Не останавливаем сервер из-за этой ошибки, но логируем
         return
     }
 
-    // Если пользователи есть, ничего не делаем
+
     if len(users) > 0 {
         log.Println("Users found in database. Skipping default admin creation.")
         return
@@ -51,23 +48,19 @@ func createDefaultAdmin(userService *serv.UserService) {
 
     log.Println("No users found. Creating default admin user...")
 
-    // Создаем админа
     adminUser := &models.User{
         Login:       defaultAdminLogin,
-        Password:    defaultAdminPassword, // UserService.CreateUser хэширует пароль
-        Role:        models.UserRolePredsedatel, // Или любая подходящая роль по умолчанию
+        Password:    defaultAdminPassword,
+        Role:        models.UserRolePredsedatel,
         FullName:    "Default Administrator",
         PhoneNumber: "+00000000000",
         TelegramTag: "@admin",
         CreatedAt:   time.Now(),
         UpdatedAt:   time.Now(),
-        // Building можно оставить пустым или задать значение по умолчанию
     }
 
     if err := userService.CreateUser(ctx, adminUser); err != nil {
         log.Printf("Error: Failed to create default admin user: %v", err)
-        // Опять же, не останавливаем сервер, но логируем критическую ошибку
-        // В production, возможно, нужно завершить работу
         return
     }
 

@@ -21,20 +21,17 @@ import (
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-	// 1. Найти пользователя по логину
 	user, err := r.UserService.GetUserByLogin(ctx, input.Login)
 	if err != nil {
 		log.Printf("Login: Authentication failed for login %s: %v", input.Login, err)
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	// 2. Проверить пароль
 	if !r.UserService.CheckPassword(user.Password, input.Password) {
 		log.Printf("Login: Invalid password provided for user %s", input.Login)
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	// 3. Сгенерировать JWT токен
 	jwtManager := auth.NewJWTManager(auth.GetSecretKey(), auth.GetTokenDuration())
 	tokenString, err := jwtManager.GenerateToken(user)
 	if err != nil {
@@ -42,47 +39,32 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 		return nil, fmt.Errorf("could not generate authentication token")
 	}
 
-	// 4. Подготовить ответ
 	authPayload := &model.AuthPayload{
 		Token: tokenString,
 		User:  user,
 	}
 
-	// 5. НЕМЕДЛЕННО установить cookie
-	// Получаем ResponseWriter из контекста
 	writer, err := middleware.GetResponseWriterFromContext(ctx)
 	if err != nil {
 		log.Printf("Login: CRITICAL - Could not get ResponseWriter from context: %v", err)
-		// Это критическая ошибка
 		return nil, fmt.Errorf("internal error (token generated, but could not set cookie)")
 	}
-	// Устанавливаем cookie напрямую
+
 	middleware.SignalSetAuthCookieDirect(writer, tokenString)
 
-	// 6. Вернуть AuthPayload
-	// Токен возвращается в теле ответа (для API/доп. сценариев)
-	// Cookie уже установлена.
 	return authPayload, nil
 }
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
-	// 1. НЕМЕДЛЕННО очистить cookie
 	writer, err := middleware.GetResponseWriterFromContext(ctx)
 	if err != nil {
 		log.Printf("Logout: Could not get ResponseWriter from context: %v", err)
-		// Не критично, просто логируем
 	} else {
 		middleware.SignalClearAuthCookieDirect(writer)
 	}
 
-	// 2. Всегда возвращаем true
 	return true, nil
-}
-
-// RefreshToken is the resolver for the refreshToken field.
-func (r *mutationResolver) RefreshToken(ctx context.Context) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: RefreshToken - refreshToken"))
 }
 
 // CreateUser is the resolver for the createUser field.
@@ -149,14 +131,12 @@ func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUse
 
 // DeleteUser is the resolver for the deleteUser field.
 func (r *mutationResolver) DeleteUser(ctx context.Context, id primitive.ObjectID) (bool, error) {
-	// 1. Получить информацию о текущем пользователе из контекста
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
 		return false, fmt.Errorf("unauthorized")
 	}
 	log.Printf("DeleteUser: Requested by user ID %s to delete user ID %s", userClaims.UserID, id.Hex())
 
-	// 2. Нельзя удалить самого себя
 	requesterID, err := primitive.ObjectIDFromHex(userClaims.UserID)
 	if err != nil {
 		return false, fmt.Errorf("invalid requester ID in token")
@@ -165,7 +145,6 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id primitive.ObjectID
 		return false, fmt.Errorf("cannot delete yourself")
 	}
 
-	// 3. Получить пользователя, которого хотят удалить, чтобы проверить его роль
 	userToDelete, err := r.UserService.GetUserByID(ctx, id)
 	if err != nil {
 		if err.Error() == "user not found" {
@@ -187,20 +166,16 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id primitive.ObjectID
 		return false, fmt.Errorf("insufficient permissions to delete user with role %s", userToDelete.Role)
 	}
 
-	// 5. Если у пользователя есть назначенные маркеры, нужно их очистить
-	// Это важно для поддержания целостности данных
 	if len(userToDelete.Markers) > 0 {
 		log.Printf("DeleteUser: User %s has %d assigned markers, removing...", id.Hex(), len(userToDelete.Markers))
 		for _, markerID := range userToDelete.Markers {
 			err := r.MarkerService.RemoveUserFromMarker(ctx, id, markerID)
 			if err != nil {
-				// Логируем, но продолжаем, чтобы не оставить частично удаленного пользователя
 				log.Printf("Warning: Failed to remove user %s from marker %s during deletion: %v", id.Hex(), markerID.Hex(), err)
 			}
 		}
 	}
 
-	// 6. Вызвать сервис для удаления пользователя
 	err = r.UserService.DeleteUser(ctx, id)
 	if err != nil {
 		log.Printf("DeleteUser: Failed to delete user %s in service: %v", id.Hex(), err)
@@ -211,79 +186,44 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id primitive.ObjectID
 	return true, nil
 }
 
-// Register is the resolver for the register field.
-func (r *mutationResolver) Register(ctx context.Context, input model.CreateUserInput) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: Register - register"))
-}
-
-// AddMarker is the resolver for the addMarker field.
-func (r *mutationResolver) AddMarker(ctx context.Context, input model.CreateMarkerInput) (*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: AddMarker - addMarker"))
-}
-
 // AssignUser is the resolver for the assignUser field.
 func (r *mutationResolver) AssignUser(ctx context.Context, input model.AssignUserInput) (*models.Marker, error) {
-	// 1. ID уже типа primitive.ObjectID, конвертация не нужна
 	userID := input.UserID
 	markerID := input.MarkerID
 
-	// 2. Вызываем метод сервиса для назначения пользователя
-	// Предполагается, что у MarkerService есть такой метод
 	err := r.MarkerService.AssignUserToMarker(ctx, userID, markerID)
 	if err != nil {
 		log.Printf("AssignUser: Failed to assign user %s to marker %s: %v", userID.Hex(), markerID.Hex(), err)
-		// Можно возвращать более конкретные ошибки GraphQL, если нужно
 		return nil, fmt.Errorf("could not assign user to marker: %w", err)
 	}
 
-	// 3. Получаем обновленный маркер из БД
 	updatedMarker, err := r.MarkerService.GetMarkerByID(ctx, markerID)
 	if err != nil {
 		log.Printf("AssignUser: Failed to get updated marker %s: %v", markerID.Hex(), err)
-		// Это не критично для мутации, но клиент не получит обновленные данные
-		// Можно вернуть ошибку или пустой маркер
 		return nil, fmt.Errorf("failed to fetch updated marker data")
 	}
 
-	// 4. Возвращаем обновленный маркер
-	// Убедитесь, что поле Users заполнено, если клиент ожидает его
-	// (например, через GetAllMarkersWithUsers или отдельный запрос)
 	return updatedMarker, nil
 }
 
 // RemoveUser is the resolver for the removeUser field.
 func (r *mutationResolver) RemoveUser(ctx context.Context, input model.RemoveUserInput) (*models.Marker, error) {
-	// 1. ID уже типа primitive.ObjectID, конвертация не нужна
 	userID := input.UserID
 	markerID := input.MarkerID
 
-	// 2. Вызываем метод сервиса для удаления пользователя
-	// Предполагается, что у MarkerService есть такой метод
 	err := r.MarkerService.RemoveUserFromMarker(ctx, userID, markerID)
 	if err != nil {
 		log.Printf("RemoveUser: Failed to remove user %s from marker %s: %v", userID.Hex(), markerID.Hex(), err)
 		return nil, fmt.Errorf("could not remove user from marker: %w", err)
 	}
 
-	// 3. Получаем обновленный маркер из БД
 	updatedMarker, err := r.MarkerService.GetMarkerByID(ctx, markerID)
 	if err != nil {
 		log.Printf("RemoveUser: Failed to get updated marker %s: %v", markerID.Hex(), err)
 		return nil, fmt.Errorf("failed to fetch updated marker data")
 	}
 
-	// 4. Возвращаем обновленный маркер
 	return updatedMarker, nil
-}
-
-// AssignMany is the resolver for the assignMany field.
-func (r *mutationResolver) AssignMany(ctx context.Context, markerID primitive.ObjectID, userIds []primitive.ObjectID) (*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: AssignMany - assignMany"))
-}
-
-// ClearMarker is the resolver for the clearMarker field.
-func (r *mutationResolver) ClearMarker(ctx context.Context, markerID primitive.ObjectID) (*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: ClearMarker - clearMarker"))
 }
 
 // DeleteNotification is the resolver for the deleteNotification field.
@@ -293,7 +233,6 @@ func (r *mutationResolver) DeleteNotification(ctx context.Context, id primitive.
 		return false, fmt.Errorf("unauthorized")
 	}
 
-	// Проверка прав доступа
 	userNotif, err := r.NotificationService.GetUserNotificationByID(ctx, id)
 	if err != nil {
 		log.Printf("DeleteNotification: Failed to get user notification %s: %v", id.Hex(), err)
@@ -346,7 +285,7 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 		Title:        input.Title,
 		Message:      input.Message,
 		SenderID:     senderID,
-		RecipientIDs: recipientIDs, // Сохраняем список получателей
+		RecipientIDs: recipientIDs,
 	}
 
 	err = r.NotificationService.CreateNotification(ctx, notification)
@@ -355,13 +294,9 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 		return false, fmt.Errorf("could not send notification")
 	}
 
-	// 2. Создать записи UserNotification для каждого получателя
 	err = r.NotificationService.CreateUserNotifications(ctx, notification.ID, recipientIDs, senderID)
 	if err != nil {
 		log.Printf("SendNotification: Failed to create user notifications: %v", err)
-		// Можно решить, считать ли это критической ошибкой
-		// или просто залогировать и вернуть true
-		// В данном случае вернем ошибку, чтобы клиент знал о проблеме
 		return false, fmt.Errorf("could not deliver notification to all recipients")
 	}
 
@@ -371,25 +306,60 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 
 // MarkNotificationAsRead is the resolver for the markNotificationAsRead field.
 func (r *mutationResolver) MarkNotificationAsRead(ctx context.Context, id primitive.ObjectID) (bool, error) {
-	panic(fmt.Errorf("not implemented: MarkNotificationAsRead - markNotificationAsRead"))
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return false, fmt.Errorf("unauthorized")
+	}
+
+	requesterID, err := primitive.ObjectIDFromHex(userClaims.UserID)
+	if err != nil {
+		return false, fmt.Errorf("invalid user ID in token")
+	}
+
+	userNotif, err := r.NotificationService.GetUserNotificationByID(ctx, id)
+	if err != nil {
+		log.Printf("MarkNotificationAsRead: User notification %s not found for user %s: %v", id.Hex(), requesterID.Hex(), err)
+		return false, fmt.Errorf("notification not found")
+	}
+
+	if userNotif.UserID != requesterID {
+		log.Printf("MarkNotificationAsRead: User %s attempted to mark notification %s (owned by %s) as read", requesterID.Hex(), id.Hex(), userNotif.UserID.Hex())
+		return false, fmt.Errorf("access denied: you can only mark your own notifications as read")
+	}
+
+	if userNotif.Status == models.NotificationStatusRead {
+		log.Printf("MarkNotificationAsRead: User notification %s is already marked as read for user %s", id.Hex(), requesterID.Hex())
+		return true, nil
+	}
+
+	err = r.NotificationService.MarkAsRead(ctx, id)
+	if err != nil {
+		log.Printf("MarkNotificationAsRead: Failed to mark user notification %s as read for user %s: %v", id.Hex(), requesterID.Hex(), err)
+		return false, fmt.Errorf("could not mark notification as read: %w", err)
+	}
+
+	log.Printf("MarkNotificationAsRead: Successfully marked user notification %s as read for user %s", id.Hex(), requesterID.Hex())
+	return true, nil
 }
 
 // Sender is the resolver for the sender field.
 func (r *notificationResolver) Sender(ctx context.Context, obj *models.Notification) (*models.User, error) {
-	panic(fmt.Errorf("not implemented: Sender - sender"))
+	sender, err := r.UserService.GetUserByID(ctx, obj.SenderID)
+	if err != nil {
+		log.Printf("notificationResolver.Sender: Failed to get sender user %s for notification %s: %v", obj.SenderID.Hex(), obj.ID.Hex(), err)
+		return nil, fmt.Errorf("failed to load sender for notification: %w", err)
+	}
+	sender.Password = ""
+	return sender, nil
 }
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
-	// 1. Получить информацию о пользователе из контекста
-	// Эта информация была помещена туда AuthMiddleware, если cookie был действителен.
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
-		// Пользователь не прошел аутентификацию (нет действительного cookie)
 		return nil, fmt.Errorf("unauthorized: valid authentication cookie is required")
 	}
 
-	// 2. Преобразовать UserID из токена (string) в ObjectID MongoDB
 	userIDHex := userClaims.UserID
 	userObjectID, err := primitive.ObjectIDFromHex(userIDHex)
 	if err != nil {
@@ -397,21 +367,17 @@ func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
 		return nil, fmt.Errorf("invalid authentication data")
 	}
 
-	// 3. Получить полную информацию о пользователе из БД по ObjectID
 	user, err := r.UserService.GetUserByID(ctx, userObjectID)
 	if err != nil {
 		log.Printf("Me: Failed to get user data for ID %s: %v", userIDHex, err)
 		return nil, fmt.Errorf("user account unavailable")
 	}
 
-	// 4. Вернуть объект пользователя
 	return user, nil
 }
 
 // Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
-	// 1. Получить информацию о текущем пользователе из контекста
-	// AuthMiddleware уже проверила @auth (пользователь аутентифицирован)
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
 		return nil, fmt.Errorf("unauthorized: valid authentication required")
@@ -419,8 +385,6 @@ func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
 
 	log.Printf("Users query: Requested by user ID %s", userClaims.UserID)
 
-	// 2. Получить полную информацию о текущем пользователе из БД
-	// Нам нужна роль пользователя для применения фильтра
 	requesterObjectID, err := primitive.ObjectIDFromHex(userClaims.UserID)
 	if err != nil {
 		log.Printf("Users query: Invalid ObjectID format in token for UserID: %s", userClaims.UserID)
@@ -433,22 +397,18 @@ func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
 		return nil, fmt.Errorf("could not retrieve requester information")
 	}
 
-	// 3. Вызвать сервис для получения списка всех пользователей
 	allUsers, err := r.UserService.GetUsers(ctx)
 	if err != nil {
 		log.Printf("Users query: Failed to retrieve users from service: %v", err)
 		return nil, fmt.Errorf("could not retrieve users list: %w", err)
 	}
 
-	// 4. Применить фильтрацию в зависимости от роли запрашивающего
 	var filteredUsers []*models.User
 	switch requester.Role {
 	case models.UserRoleDgis:
-		// DGIS видит всех пользователей
 		log.Printf("Users query: DGIS user, returning all %d users", len(allUsers))
 		filteredUsers = allUsers
 	case models.UserRolePredsedatel:
-		// PREDSEDATEL видит только STAROSTA и SUPERVISOR
 		for _, user := range allUsers {
 			if user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor {
 				filteredUsers = append(filteredUsers, user)
@@ -456,36 +416,16 @@ func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
 		}
 		log.Printf("Users query: PREDSEDATEL user, returning %d users (STAROSTA and SUPERVISOR only)", len(filteredUsers))
 	default:
-		// STAROSTA и SUPERVISOR не должны иметь доступа к этому запросу
-		// (это должно быть отфильтровано директивами @auth и @hasRole в схеме)
-		// Но на всякий случай добавим защиту
 		log.Printf("Users query: User with role %s attempted to access users list - this should be blocked by schema directives", requester.Role)
 		return nil, fmt.Errorf("access denied: insufficient permissions to view users list")
 	}
 
-	// 5. Очистить пароли перед отправкой (важно для безопасности)
 	for _, user := range filteredUsers {
-		user.Password = "" // Никогда не отправляем хэши паролей клиенту
+		user.Password = ""
 	}
 
-	// 6. Вернуть отфильтрованный список пользователей
 	log.Printf("Users query: Successfully retrieved and filtered %d users for requester %s", len(filteredUsers), userClaims.UserID)
 	return filteredUsers, nil
-}
-
-// AllMarkers is the resolver for the allMarkers field.
-func (r *queryResolver) AllMarkers(ctx context.Context) ([]*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: AllMarkers - allMarkers"))
-}
-
-// Marker is the resolver for the marker field.
-func (r *queryResolver) Marker(ctx context.Context, id primitive.ObjectID) (*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: Marker - marker"))
-}
-
-// MarkerByCode is the resolver for the markerByCode field.
-func (r *queryResolver) MarkerByCode(ctx context.Context, code string) (*models.Marker, error) {
-	panic(fmt.Errorf("not implemented: MarkerByCode - markerByCode"))
 }
 
 // Dashboard is the resolver for the dashboard field.
@@ -500,8 +440,6 @@ func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error)
 
 	log.Printf("Dashboard: Successfully retrieved %d markers from service", len(markers))
 
-	// --- КРИТИЧЕСКОЕ ОТЛАДОЧНОЕ ЛОГИРОВАНИЕ ---
-	// Проверим, действительно ли поле Users заполнено в возвращаемых данных
 	if len(markers) > 0 {
 		firstMarker := markers[0]
 		log.Printf("Dashboard: First marker ID: %s, Label: %s", firstMarker.ID.Hex(), firstMarker.Label)
@@ -515,12 +453,8 @@ func (r *queryResolver) Dashboard(ctx context.Context) ([]*models.Marker, error)
 			}
 		} else {
 			log.Println("Dashboard: First marker has NO users")
-			// Давайте проверим, есть ли AssignedUserIds и что там
-			// (если вы оставили это поле в models.Marker)
-			// log.Printf("Dashboard: First marker AssignedUserIds: %v", firstMarker.AssignedUserIds)
 		}
 	}
-	// --- КОНЕЦ ОТЛАДОЧНОГО ЛОГИРОВАНИЯ ---
 
 	return markers, nil
 }
@@ -537,8 +471,7 @@ func (r *queryResolver) MyNotifications(ctx context.Context, statuses []models.N
 		return nil, fmt.Errorf("invalid user ID in token")
 	}
 
-	// Установка значений по умолчанию
-	limitVal := 20 // Значение по умолчанию
+	limitVal := 20
 	if limit != nil && *limit > 0 {
 		limitVal = *limit
 	}
@@ -547,13 +480,11 @@ func (r *queryResolver) MyNotifications(ctx context.Context, statuses []models.N
 		offsetVal = *offset
 	}
 
-	// Преобразование статусов из GraphQL enum в модельные
 	var modelStatuses []models.NotificationStatus
 	for _, status := range statuses {
 		modelStatuses = append(modelStatuses, models.NotificationStatus(status))
 	}
 
-	// Получение уведомлений из сервиса
 	userNotifs, err := r.NotificationService.GetUserNotifications(ctx, userID, modelStatuses, limitVal, offsetVal)
 	if err != nil {
 		log.Printf("MyNotifications: Failed to get notifications for user %s: %v", userID.Hex(), err)
@@ -576,7 +507,6 @@ func (r *queryResolver) UnreadNotificationsCount(ctx context.Context) (int, erro
 		return 0, fmt.Errorf("invalid user ID in token")
 	}
 
-	// Подсчет непрочитанных уведомлений
 	count, err := r.NotificationService.GetUnreadCount(ctx, userID)
 	if err != nil {
 		log.Printf("UnreadNotificationsCount: Failed to count for user %s: %v", userID.Hex(), err)
@@ -588,58 +518,38 @@ func (r *queryResolver) UnreadNotificationsCount(ctx context.Context) (int, erro
 
 // Markers is the resolver for the markers field.
 func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error) {
-	// 1. Оптимизация: если у пользователя нет назначенных маркеров,
-	// сразу возвращаем пустой список.
-	// Это справедливо для PREDSEDATEL и DGIS.
 	if len(obj.Markers) == 0 {
 		return []*models.Marker{}, nil
 	}
 
-	// 2. Для STAROSTA/SUPERVISOR: получаем маркеры из БД.
-	// Создаем фильтр для поиска маркеров по списку ID из obj.Markers
 	filter := bson.M{"_id": bson.M{"$in": obj.Markers}}
 
-	// 3. Получаем коллекцию маркеров.
-	// Предполагается, что *resolver (r) имеет доступ к MarkerService.
-	// Убедитесь, что в структуре Resolver есть поле *MarkerService.
 	markerCollection := r.MarkerService.GetCollection("markers")
 
-	// 4. Выполняем запрос к БД
 	var markers []*models.Marker
-	// Используем ваш пакет query для поиска нескольких документов
+
 	err := query.FindMany(ctx, markerCollection, filter, &markers)
 	if err != nil {
-		// Логируем ошибку
 		log.Printf("userResolver.Markers: DB error for user %s (%s): %v", obj.Login, obj.ID.Hex(), err)
-		// Возвращаем пустой список вместо паники/ошибки,
-		// чтобы не ломать весь запрос `me` из-за одной части.
 		return []*models.Marker{}, nil
 	}
 
-	// 5. Возвращаем найденные маркеры
 	return markers, nil
 }
 
 // User is the resolver for the user field.
 func (r *userNotificationResolver) User(ctx context.Context, obj *models.UserNotification) (*models.User, error) {
-	// obj.UserID содержит ID пользователя, связанного с этим уведомлением
 	user, err := r.UserService.GetUserByID(ctx, obj.UserID)
 	if err != nil {
-		// Логируем ошибку для отладки
 		log.Printf("userNotificationResolver.User: Failed to get user %s: %v", obj.UserID.Hex(), err)
-		// Возвращаем nil и ошибку, это приведет к ошибке GraphQL запроса
-		// Можно также вернуть nil, nil если предпочитаете пропустить это поле
 		return nil, fmt.Errorf("failed to load user for notification: %w", err)
 	}
-	// Убедимся, что пароль не утекает
 	user.Password = ""
 	return user, nil
 }
 
 // Notification is the resolver for the notification field.
-// Загружает полную информацию об уведомлении по NotificationID из UserNotification
 func (r *userNotificationResolver) Notification(ctx context.Context, obj *models.UserNotification) (*models.Notification, error) {
-	// obj.NotificationID содержит ID уведомления
 	notification, err := r.NotificationService.GetNotificationByID(ctx, obj.NotificationID)
 	if err != nil {
 		log.Printf("userNotificationResolver.Notification: Failed to get notification %s: %v", obj.NotificationID.Hex(), err)

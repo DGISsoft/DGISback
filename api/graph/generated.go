@@ -67,18 +67,13 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AddMarker              func(childComplexity int, input model.CreateMarkerInput) int
-		AssignMany             func(childComplexity int, markerID primitive.ObjectID, userIds []primitive.ObjectID) int
 		AssignUser             func(childComplexity int, input model.AssignUserInput) int
-		ClearMarker            func(childComplexity int, markerID primitive.ObjectID) int
 		CreateUser             func(childComplexity int, input model.CreateUserInput) int
 		DeleteNotification     func(childComplexity int, id primitive.ObjectID) int
 		DeleteUser             func(childComplexity int, id primitive.ObjectID) int
 		Login                  func(childComplexity int, input model.LoginInput) int
 		Logout                 func(childComplexity int) int
 		MarkNotificationAsRead func(childComplexity int, id primitive.ObjectID) int
-		RefreshToken           func(childComplexity int) int
-		Register               func(childComplexity int, input model.CreateUserInput) int
 		RemoveUser             func(childComplexity int, input model.RemoveUserInput) int
 		SendNotification       func(childComplexity int, input model.SendNotificationInput) int
 	}
@@ -94,10 +89,7 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		AllMarkers               func(childComplexity int) int
 		Dashboard                func(childComplexity int) int
-		Marker                   func(childComplexity int, id primitive.ObjectID) int
-		MarkerByCode             func(childComplexity int, code string) int
 		Me                       func(childComplexity int) int
 		MyNotifications          func(childComplexity int, statuses []models.NotificationStatus, limit *int, offset *int) int
 		UnreadNotificationsCount func(childComplexity int) int
@@ -130,15 +122,10 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error)
 	Logout(ctx context.Context) (bool, error)
-	RefreshToken(ctx context.Context) (*model.AuthPayload, error)
 	CreateUser(ctx context.Context, input model.CreateUserInput) (*models.User, error)
 	DeleteUser(ctx context.Context, id primitive.ObjectID) (bool, error)
-	Register(ctx context.Context, input model.CreateUserInput) (*models.User, error)
-	AddMarker(ctx context.Context, input model.CreateMarkerInput) (*models.Marker, error)
 	AssignUser(ctx context.Context, input model.AssignUserInput) (*models.Marker, error)
 	RemoveUser(ctx context.Context, input model.RemoveUserInput) (*models.Marker, error)
-	AssignMany(ctx context.Context, markerID primitive.ObjectID, userIds []primitive.ObjectID) (*models.Marker, error)
-	ClearMarker(ctx context.Context, markerID primitive.ObjectID) (*models.Marker, error)
 	DeleteNotification(ctx context.Context, id primitive.ObjectID) (bool, error)
 	SendNotification(ctx context.Context, input model.SendNotificationInput) (bool, error)
 	MarkNotificationAsRead(ctx context.Context, id primitive.ObjectID) (bool, error)
@@ -149,9 +136,6 @@ type NotificationResolver interface {
 type QueryResolver interface {
 	Me(ctx context.Context) (*models.User, error)
 	Users(ctx context.Context) ([]*models.User, error)
-	AllMarkers(ctx context.Context) ([]*models.Marker, error)
-	Marker(ctx context.Context, id primitive.ObjectID) (*models.Marker, error)
-	MarkerByCode(ctx context.Context, code string) (*models.Marker, error)
 	Dashboard(ctx context.Context) ([]*models.Marker, error)
 	MyNotifications(ctx context.Context, statuses []models.NotificationStatus, limit *int, offset *int) ([]*models.UserNotification, error)
 	UnreadNotificationsCount(ctx context.Context) (int, error)
@@ -232,30 +216,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Marker.Users(childComplexity), true
 
-	case "Mutation.addMarker":
-		if e.complexity.Mutation.AddMarker == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_addMarker_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.AddMarker(childComplexity, args["input"].(model.CreateMarkerInput)), true
-
-	case "Mutation.assignMany":
-		if e.complexity.Mutation.AssignMany == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_assignMany_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.AssignMany(childComplexity, args["markerId"].(primitive.ObjectID), args["userIds"].([]primitive.ObjectID)), true
-
 	case "Mutation.assignUser":
 		if e.complexity.Mutation.AssignUser == nil {
 			break
@@ -267,18 +227,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.AssignUser(childComplexity, args["input"].(model.AssignUserInput)), true
-
-	case "Mutation.clearMarker":
-		if e.complexity.Mutation.ClearMarker == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_clearMarker_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.ClearMarker(childComplexity, args["markerId"].(primitive.ObjectID)), true
 
 	case "Mutation.createUser":
 		if e.complexity.Mutation.CreateUser == nil {
@@ -346,25 +294,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.MarkNotificationAsRead(childComplexity, args["id"].(primitive.ObjectID)), true
-
-	case "Mutation.refreshToken":
-		if e.complexity.Mutation.RefreshToken == nil {
-			break
-		}
-
-		return e.complexity.Mutation.RefreshToken(childComplexity), true
-
-	case "Mutation.register":
-		if e.complexity.Mutation.Register == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_register_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.Register(childComplexity, args["input"].(model.CreateUserInput)), true
 
 	case "Mutation.removeUser":
 		if e.complexity.Mutation.RemoveUser == nil {
@@ -439,43 +368,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Notification.Type(childComplexity), true
 
-	case "Query.allMarkers":
-		if e.complexity.Query.AllMarkers == nil {
-			break
-		}
-
-		return e.complexity.Query.AllMarkers(childComplexity), true
-
 	case "Query.dashboard":
 		if e.complexity.Query.Dashboard == nil {
 			break
 		}
 
 		return e.complexity.Query.Dashboard(childComplexity), true
-
-	case "Query.marker":
-		if e.complexity.Query.Marker == nil {
-			break
-		}
-
-		args, err := ec.field_Query_marker_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.Marker(childComplexity, args["id"].(primitive.ObjectID)), true
-
-	case "Query.markerByCode":
-		if e.complexity.Query.MarkerByCode == nil {
-			break
-		}
-
-		args, err := ec.field_Query_markerByCode_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.MarkerByCode(childComplexity, args["code"].(string)), true
 
 	case "Query.me":
 		if e.complexity.Query.Me == nil {
@@ -752,33 +650,6 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Mutation_addMarker_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMarkerInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateMarkerInput)
-	if err != nil {
-		return nil, err
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_assignMany_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "markerId", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
-	if err != nil {
-		return nil, err
-	}
-	args["markerId"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "userIds", ec.unmarshalNID2ᚕgoᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectIDᚄ)
-	if err != nil {
-		return nil, err
-	}
-	args["userIds"] = arg1
-	return args, nil
-}
-
 func (ec *executionContext) field_Mutation_assignUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -787,17 +658,6 @@ func (ec *executionContext) field_Mutation_assignUser_args(ctx context.Context, 
 		return nil, err
 	}
 	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_clearMarker_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "markerId", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
-	if err != nil {
-		return nil, err
-	}
-	args["markerId"] = arg0
 	return args, nil
 }
 
@@ -856,17 +716,6 @@ func (ec *executionContext) field_Mutation_markNotificationAsRead_args(ctx conte
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_register_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateUserInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateUserInput)
-	if err != nil {
-		return nil, err
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
 func (ec *executionContext) field_Mutation_removeUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -897,28 +746,6 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["name"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_markerByCode_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "code", ec.unmarshalNString2string)
-	if err != nil {
-		return nil, err
-	}
-	args["code"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_marker_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
 	return args, nil
 }
 
@@ -1452,56 +1279,6 @@ func (ec *executionContext) fieldContext_Mutation_logout(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_refreshToken(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_refreshToken(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().RefreshToken(rctx)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.AuthPayload)
-	fc.Result = res
-	return ec.marshalNAuthPayload2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐAuthPayload(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_refreshToken(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "token":
-				return ec.fieldContext_AuthPayload_token(ctx, field)
-			case "user":
-				return ec.fieldContext_AuthPayload_user(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type AuthPayload", field.Name)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Mutation_createUser(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_createUser(ctx, field)
 	if err != nil {
@@ -1628,150 +1405,6 @@ func (ec *executionContext) fieldContext_Mutation_deleteUser(ctx context.Context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteUser_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_register(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_register(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().Register(rctx, fc.Args["input"].(model.CreateUserInput))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*models.User)
-	fc.Result = res
-	return ec.marshalNUser2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUser(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_register(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_User_id(ctx, field)
-			case "login":
-				return ec.fieldContext_User_login(ctx, field)
-			case "role":
-				return ec.fieldContext_User_role(ctx, field)
-			case "fullName":
-				return ec.fieldContext_User_fullName(ctx, field)
-			case "building":
-				return ec.fieldContext_User_building(ctx, field)
-			case "phoneNumber":
-				return ec.fieldContext_User_phoneNumber(ctx, field)
-			case "telegramTag":
-				return ec.fieldContext_User_telegramTag(ctx, field)
-			case "markers":
-				return ec.fieldContext_User_markers(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_User_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_User_updatedAt(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_register_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_addMarker(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_addMarker(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().AddMarker(rctx, fc.Args["input"].(model.CreateMarkerInput))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*models.Marker)
-	fc.Result = res
-	return ec.marshalNMarker2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐMarker(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_addMarker(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Marker_id(ctx, field)
-			case "markerId":
-				return ec.fieldContext_Marker_markerId(ctx, field)
-			case "position":
-				return ec.fieldContext_Marker_position(ctx, field)
-			case "label":
-				return ec.fieldContext_Marker_label(ctx, field)
-			case "users":
-				return ec.fieldContext_Marker_users(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Marker", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_addMarker_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1906,140 +1539,6 @@ func (ec *executionContext) fieldContext_Mutation_removeUser(ctx context.Context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_removeUser_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_assignMany(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_assignMany(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().AssignMany(rctx, fc.Args["markerId"].(primitive.ObjectID), fc.Args["userIds"].([]primitive.ObjectID))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*models.Marker)
-	fc.Result = res
-	return ec.marshalNMarker2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐMarker(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_assignMany(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Marker_id(ctx, field)
-			case "markerId":
-				return ec.fieldContext_Marker_markerId(ctx, field)
-			case "position":
-				return ec.fieldContext_Marker_position(ctx, field)
-			case "label":
-				return ec.fieldContext_Marker_label(ctx, field)
-			case "users":
-				return ec.fieldContext_Marker_users(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Marker", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_assignMany_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_clearMarker(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_clearMarker(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().ClearMarker(rctx, fc.Args["markerId"].(primitive.ObjectID))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*models.Marker)
-	fc.Result = res
-	return ec.marshalNMarker2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐMarker(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_clearMarker(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Marker_id(ctx, field)
-			case "markerId":
-				return ec.fieldContext_Marker_markerId(ctx, field)
-			case "position":
-				return ec.fieldContext_Marker_position(ctx, field)
-			case "label":
-				return ec.fieldContext_Marker_label(ctx, field)
-			case "users":
-				return ec.fieldContext_Marker_users(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Marker", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_clearMarker_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2666,190 +2165,6 @@ func (ec *executionContext) fieldContext_Query_users(_ context.Context, field gr
 			}
 			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
 		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_allMarkers(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_allMarkers(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().AllMarkers(rctx)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*models.Marker)
-	fc.Result = res
-	return ec.marshalNMarker2ᚕᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐMarkerᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_allMarkers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Marker_id(ctx, field)
-			case "markerId":
-				return ec.fieldContext_Marker_markerId(ctx, field)
-			case "position":
-				return ec.fieldContext_Marker_position(ctx, field)
-			case "label":
-				return ec.fieldContext_Marker_label(ctx, field)
-			case "users":
-				return ec.fieldContext_Marker_users(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Marker", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_marker(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_marker(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Marker(rctx, fc.Args["id"].(primitive.ObjectID))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*models.Marker)
-	fc.Result = res
-	return ec.marshalOMarker2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐMarker(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_marker(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Marker_id(ctx, field)
-			case "markerId":
-				return ec.fieldContext_Marker_markerId(ctx, field)
-			case "position":
-				return ec.fieldContext_Marker_position(ctx, field)
-			case "label":
-				return ec.fieldContext_Marker_label(ctx, field)
-			case "users":
-				return ec.fieldContext_Marker_users(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Marker", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_marker_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_markerByCode(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_markerByCode(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().MarkerByCode(rctx, fc.Args["code"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*models.Marker)
-	fc.Result = res
-	return ec.marshalOMarker2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐMarker(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_markerByCode(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Marker_id(ctx, field)
-			case "markerId":
-				return ec.fieldContext_Marker_markerId(ctx, field)
-			case "position":
-				return ec.fieldContext_Marker_position(ctx, field)
-			case "label":
-				return ec.fieldContext_Marker_label(ctx, field)
-			case "users":
-				return ec.fieldContext_Marker_users(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Marker", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_markerByCode_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -6257,13 +5572,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "refreshToken":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_refreshToken(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "createUser":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createUser(ctx, field)
@@ -6278,20 +5586,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "register":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_register(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "addMarker":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_addMarker(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "assignUser":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_assignUser(ctx, field)
@@ -6302,20 +5596,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "removeUser":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_removeUser(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "assignMany":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_assignMany(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "clearMarker":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_clearMarker(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -6515,66 +5795,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "allMarkers":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_allMarkers(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "marker":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_marker(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "markerByCode":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_markerByCode(ctx, field)
 				return res
 			}
 
@@ -7286,11 +6506,6 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalNCreateMarkerInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateMarkerInput(ctx context.Context, v any) (model.CreateMarkerInput, error) {
-	res, err := ec.unmarshalInputCreateMarkerInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
 func (ec *executionContext) unmarshalNCreateUserInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateUserInput(ctx context.Context, v any) (model.CreateUserInput, error) {
 	res, err := ec.unmarshalInputCreateUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -7985,13 +7200,6 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	_ = ctx
 	res := graphql.MarshalInt(*v)
 	return res
-}
-
-func (ec *executionContext) marshalOMarker2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐMarker(ctx context.Context, sel ast.SelectionSet, v *models.Marker) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Marker(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalONotificationStatus2ᚕgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐNotificationStatusᚄ(ctx context.Context, v any) ([]models.NotificationStatus, error) {

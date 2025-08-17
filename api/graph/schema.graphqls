@@ -25,8 +25,8 @@ type Notification {
   type: NotificationType!
   title: String!
   message: String!
-  sender: User! # Ссылка на отправителя
-  recipientIds: [ID!]! # Список ID получателей (для массовых уведомлений)
+  sender: User!
+  recipientIds: [ID!]!
   createdAt: Time!
 }
 
@@ -40,7 +40,7 @@ type UserNotification {
 }
 
 input SendNotificationInput {
-  userIds: [ID!]! # Список ID пользователей-получателей
+  userIds: [ID!]!
   title: String!
   message: String!
   type: NotificationType
@@ -54,7 +54,7 @@ type User {
   building: String
   phoneNumber: String!
   telegramTag: String!
-  markers: [Marker!]! # Назначенные маркеры
+  markers: [Marker!]!
   createdAt: Time!
   updatedAt: Time!
 }
@@ -64,7 +64,7 @@ type Marker {
   markerId: String!
   position: [Float!]!
   label: String!
-  users: [User!]! # Назначенные пользователи
+  users: [User!]!
 }
 
 input CreateUserInput {
@@ -106,9 +106,6 @@ input LoginInput {
 type Query {
   me: User
   users: [User!]!
-  allMarkers: [Marker!]!
-  marker(id: ID!): Marker
-  markerByCode(code: String!): Marker
   dashboard: [Marker!]!
   myNotifications(
     statuses: [NotificationStatus!]
@@ -121,19 +118,11 @@ type Query {
 type Mutation {
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
-  refreshToken: AuthPayload!
   createUser(input: CreateUserInput!): User!
   deleteUser(id: ID!): Boolean!
-  register(input: CreateUserInput!): User!
-  addMarker(input: CreateMarkerInput!): Marker!
 
-  # Работа с назначениями
   assignUser(input: AssignUserInput!): Marker!
   removeUser(input: RemoveUserInput!): Marker!
-
-  # Массовые операции
-  assignMany(markerId: ID!, userIds: [ID!]!): Marker!
-  clearMarker(markerId: ID!): Marker!
 
   deleteNotification(id: ID!): Boolean!
   sendNotification(input: SendNotificationInput!): Boolean!

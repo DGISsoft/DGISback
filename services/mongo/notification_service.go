@@ -106,7 +106,8 @@ func (s *NotificationService) GetUserNotifications(ctx context.Context, userID p
 
 	// Опции сортировки (новые сверху) и пагинации
 	opts := options.Find()
-	opts.SetSort(bson.D{{"createdAt", -1}}) // Сортировка по убыванию даты создания
+	opts.SetSort(bson.D{{Key: "createdAt",
+	Value: -1}}) // Сортировка по убыванию даты создания
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 	}

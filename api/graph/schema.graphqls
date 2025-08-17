@@ -79,9 +79,7 @@ type Mutation {
   logout: Boolean!
   refreshToken: AuthPayload!
   createUser(input: CreateUserInput!): User!
-    @auth
-    @hasRole(roles: [PREDSEDATEL, DGIS])
-  deleteUser(id: ID!): Boolean! @auth @hasRole(roles: [PREDSEDATEL, DGIS])
+  deleteUser(id: ID!): Boolean!
   register(input: CreateUserInput!): User!
   addMarker(input: CreateMarkerInput!): Marker!
 
@@ -93,6 +91,3 @@ type Mutation {
   assignMany(markerId: ID!, userIds: [ID!]!): Marker!
   clearMarker(markerId: ID!): Marker!
 }
-
-directive @auth on FIELD_DEFINITION
-directive @hasRole(roles: [UserRole!]!) on FIELD_DEFINITION

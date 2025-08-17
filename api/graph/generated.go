@@ -48,8 +48,6 @@ type ResolverRoot interface {
 }
 
 type DirectiveRoot struct {
-	Auth    func(ctx context.Context, obj any, next graphql.Resolver) (res any, err error)
-	HasRole func(ctx context.Context, obj any, next graphql.Resolver, roles []models.UserRole) (res any, err error)
 }
 
 type ComplexityRoot struct {
@@ -582,17 +580,6 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
-
-func (ec *executionContext) dir_hasRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "roles", ec.unmarshalNUserRole2ᚕgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserRoleᚄ)
-	if err != nil {
-		return nil, err
-	}
-	args["roles"] = arg0
-	return args, nil
-}
 
 func (ec *executionContext) field_Mutation_addMarker_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -1314,42 +1301,8 @@ func (ec *executionContext) _Mutation_createUser(ctx context.Context, field grap
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		directive0 := func(rctx context.Context) (any, error) {
-			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().CreateUser(rctx, fc.Args["input"].(model.CreateUserInput))
-		}
-
-		directive1 := func(ctx context.Context) (any, error) {
-			if ec.directives.Auth == nil {
-				var zeroVal *models.User
-				return zeroVal, errors.New("directive auth is not implemented")
-			}
-			return ec.directives.Auth(ctx, nil, directive0)
-		}
-		directive2 := func(ctx context.Context) (any, error) {
-			roles, err := ec.unmarshalNUserRole2ᚕgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserRoleᚄ(ctx, []any{"PREDSEDATEL", "DGIS"})
-			if err != nil {
-				var zeroVal *models.User
-				return zeroVal, err
-			}
-			if ec.directives.HasRole == nil {
-				var zeroVal *models.User
-				return zeroVal, errors.New("directive hasRole is not implemented")
-			}
-			return ec.directives.HasRole(ctx, nil, directive1, roles)
-		}
-
-		tmp, err := directive2(rctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if tmp == nil {
-			return nil, nil
-		}
-		if data, ok := tmp.(*models.User); ok {
-			return data, nil
-		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/DGISsoft/DGISback/models.User`, tmp)
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreateUser(rctx, fc.Args["input"].(model.CreateUserInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1425,42 +1378,8 @@ func (ec *executionContext) _Mutation_deleteUser(ctx context.Context, field grap
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		directive0 := func(rctx context.Context) (any, error) {
-			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().DeleteUser(rctx, fc.Args["id"].(primitive.ObjectID))
-		}
-
-		directive1 := func(ctx context.Context) (any, error) {
-			if ec.directives.Auth == nil {
-				var zeroVal bool
-				return zeroVal, errors.New("directive auth is not implemented")
-			}
-			return ec.directives.Auth(ctx, nil, directive0)
-		}
-		directive2 := func(ctx context.Context) (any, error) {
-			roles, err := ec.unmarshalNUserRole2ᚕgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserRoleᚄ(ctx, []any{"PREDSEDATEL", "DGIS"})
-			if err != nil {
-				var zeroVal bool
-				return zeroVal, err
-			}
-			if ec.directives.HasRole == nil {
-				var zeroVal bool
-				return zeroVal, errors.New("directive hasRole is not implemented")
-			}
-			return ec.directives.HasRole(ctx, nil, directive1, roles)
-		}
-
-		tmp, err := directive2(rctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if tmp == nil {
-			return nil, nil
-		}
-		if data, ok := tmp.(bool); ok {
-			return data, nil
-		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be bool`, tmp)
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteUser(rctx, fc.Args["id"].(primitive.ObjectID))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -6278,65 +6197,6 @@ func (ec *executionContext) marshalNUserRole2githubᚗcomᚋDGISsoftᚋDGISback�
 		}
 	}
 	return res
-}
-
-func (ec *executionContext) unmarshalNUserRole2ᚕgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserRoleᚄ(ctx context.Context, v any) ([]models.UserRole, error) {
-	var vSlice []any
-	vSlice = graphql.CoerceList(v)
-	var err error
-	res := make([]models.UserRole, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNUserRole2githubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserRole(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalNUserRole2ᚕgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserRoleᚄ(ctx context.Context, sel ast.SelectionSet, v []models.UserRole) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNUserRole2githubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserRole(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

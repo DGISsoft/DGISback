@@ -4,6 +4,8 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/DGISsoft/DGISback/models"               // Убедитесь в правильности пути
 	"github.com/DGISsoft/DGISback/services/mongo/query" // Убедитесь в правильности пути
@@ -72,7 +74,7 @@ func (s *UserService) GetUsers(ctx context.Context) ([]*models.User, error) {
 
 // CreateUser создает нового пользователя.
 func (s *UserService) CreateUser(ctx context.Context, user *models.User) error {
-    collection := s.GetCollection("users") // <-- Доступ через встроенный MongoService
+    collection := s.GetCollection("users")
 
     // Хешируем пароль перед сохранением
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
@@ -82,12 +84,23 @@ func (s *UserService) CreateUser(ctx context.Context, user *models.User) error {
     user.Password = string(hashedPassword)
 
     // Устанавливаем временные метки
-    // Предполагается, что user.CreatedAt и user.UpdatedAt устанавливаются до вызова
-    // user.CreatedAt = user.UpdatedAt
+    now := time.Now()
+    user.CreatedAt = now
+    user.UpdatedAt = now
 
-    _, err = collection.InsertOne(ctx, user)
+    // Выполняем вставку и получаем результат
+    res, err := collection.InsertOne(ctx, user)
     if err != nil {
         return fmt.Errorf("failed to create user: %w", err)
+    }
+
+    // Получаем ID вставленного документа и устанавливаем его в объект user
+    if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
+        user.ID = oid
+        log.Printf("UserService: Created user with ID %s", user.ID.Hex())
+    } else {
+        // Это маловероятно, но на всякий случай
+        return fmt.Errorf("failed to get inserted user ID, expected ObjectID, got %T", res.InsertedID)
     }
 
     return nil

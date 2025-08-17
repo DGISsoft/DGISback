@@ -86,85 +86,129 @@ func (r *mutationResolver) RefreshToken(ctx context.Context) (*model.AuthPayload
 }
 
 // CreateUser is the resolver for the createUser field.
-// CreateUser is the resolver for the createUser field.
 func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*models.User, error) {
-	// 1. Получить информацию о текущем пользователе из контекста (для логирования)
-	// AuthMiddleware уже проверила @auth и @hasRole
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
 		return nil, fmt.Errorf("unauthorized")
 	}
 	log.Printf("CreateUser: Requested by user ID %s", userClaims.UserID)
 
-	// 2. Проверить, существует ли пользователь с таким логином
 	_, err := r.UserService.GetUserByLogin(ctx, input.Login)
 	if err == nil {
-		// Пользователь найден, значит логин занят
 		return nil, fmt.Errorf("user with login '%s' already exists", input.Login)
 	}
-	// Если ошибка "user not found", это нормально и мы можем продолжать
 
-	// 3. Создать объект пользователя из входных данных
 	user := &models.User{
 		Login:       input.Login,
-		Password:    input.Password, // Будет захеширован в сервисе
-		Role:        models.UserRole(input.Role), // Преобразование enum
+		Password:    input.Password,
+		Role:        models.UserRole(input.Role),
 		FullName:    input.FullName,
-		Building:    input.Building, // Может быть nil
+		Building:    input.Building,
 		PhoneNumber: input.PhoneNumber,
 		TelegramTag: input.TelegramTag,
-		Markers:     []primitive.ObjectID{}, // Пока без маркеров
+		Markers:     []primitive.ObjectID{},
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 
-	// 4. Валидация роли (на всякий случай, хотя GraphQL схема это частично проверяет)
 	if !user.Role.IsValid() {
 		return nil, fmt.Errorf("invalid user role: %s", input.Role)
 	}
 
-	// 5. Вызвать сервис для создания пользователя
 	err = r.UserService.CreateUser(ctx, user)
 	if err != nil {
 		log.Printf("CreateUser: Failed to create user in service: %v", err)
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// 6. Автоматическая привязка к маркеру для STAROSTA и SUPERVISOR
-	if user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor {
-		if user.Building != nil && *user.Building != "" {
+	if (user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor) &&
+		user.Building != nil && *user.Building != "" {
+
+		if user.ID.IsZero() {
+			log.Printf("CreateUser: Warning - User ID is zero after creation, skipping auto-assignment for user login '%s'", user.Login)
+		} else {
 			log.Printf("CreateUser: Attempting to auto-assign user %s to marker for building '%s'", user.ID.Hex(), *user.Building)
-			
-			// Найти маркер по label (который соответствует building)
+
 			marker, err := r.MarkerService.GetMarkerByLabel(ctx, *user.Building)
 			if err != nil {
 				log.Printf("CreateUser: Warning - Could not find marker for building '%s': %v", *user.Building, err)
-				// Не возвращаем ошибку, просто логируем - пользователь создан, но не привязан
 			} else {
-				// Назначить пользователя на найденный маркер
 				err = r.MarkerService.AssignUserToMarker(ctx, user.ID, marker.ID)
 				if err != nil {
 					log.Printf("CreateUser: Warning - Failed to assign user %s to marker %s: %v", user.ID.Hex(), marker.ID.Hex(), err)
-					// Не возвращаем ошибку, просто логируем
 				} else {
 					log.Printf("CreateUser: Successfully assigned user %s to marker %s for building '%s'", user.ID.Hex(), marker.ID.Hex(), *user.Building)
-					// Обновляем список маркеров у пользователя
-					user.Markers = append(user.Markers, marker.ID)
 				}
 			}
-		} else {
-			log.Printf("CreateUser: User %s has role %s but no building specified, skipping auto-assignment", user.ID.Hex(), user.Role)
 		}
 	}
 
-	// 7. Вернуть созданного пользователя (без пароля)
-	user.Password = "" // Убедимся, что пароль не попадет в ответ
+	user.Password = ""
 	return user, nil
 }
 
 // DeleteUser is the resolver for the deleteUser field.
 func (r *mutationResolver) DeleteUser(ctx context.Context, id primitive.ObjectID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteUser - deleteUser"))
+	// 1. Получить информацию о текущем пользователе из контекста
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return false, fmt.Errorf("unauthorized")
+	}
+	log.Printf("DeleteUser: Requested by user ID %s to delete user ID %s", userClaims.UserID, id.Hex())
+
+	// 2. Нельзя удалить самого себя
+	requesterID, err := primitive.ObjectIDFromHex(userClaims.UserID)
+	if err != nil {
+		return false, fmt.Errorf("invalid requester ID in token")
+	}
+	if requesterID == id {
+		return false, fmt.Errorf("cannot delete yourself")
+	}
+
+	// 3. Получить пользователя, которого хотят удалить, чтобы проверить его роль
+	userToDelete, err := r.UserService.GetUserByID(ctx, id)
+	if err != nil {
+		if err.Error() == "user not found" {
+			return false, fmt.Errorf("user not found")
+		}
+		log.Printf("DeleteUser: Failed to get user %s: %v", id.Hex(), err)
+		return false, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	requester, err := r.UserService.GetUserByID(ctx, requesterID)
+	if err != nil {
+		log.Printf("DeleteUser: Failed to get requester %s: %v", requesterID.Hex(), err)
+		return false, fmt.Errorf("failed to get requester info: %w", err)
+	}
+
+	if !requester.HasHigherRole(userToDelete.Role) {
+		log.Printf("DeleteUser: User %s (role %s) attempted to delete user %s (role %s) - forbidden by role hierarchy",
+			requesterID.Hex(), requester.Role, id.Hex(), userToDelete.Role)
+		return false, fmt.Errorf("insufficient permissions to delete user with role %s", userToDelete.Role)
+	}
+
+	// 5. Если у пользователя есть назначенные маркеры, нужно их очистить
+	// Это важно для поддержания целостности данных
+	if len(userToDelete.Markers) > 0 {
+		log.Printf("DeleteUser: User %s has %d assigned markers, removing...", id.Hex(), len(userToDelete.Markers))
+		for _, markerID := range userToDelete.Markers {
+			err := r.MarkerService.RemoveUserFromMarker(ctx, id, markerID)
+			if err != nil {
+				// Логируем, но продолжаем, чтобы не оставить частично удаленного пользователя
+				log.Printf("Warning: Failed to remove user %s from marker %s during deletion: %v", id.Hex(), markerID.Hex(), err)
+			}
+		}
+	}
+
+	// 6. Вызвать сервис для удаления пользователя
+	err = r.UserService.DeleteUser(ctx, id)
+	if err != nil {
+		log.Printf("DeleteUser: Failed to delete user %s in service: %v", id.Hex(), err)
+		return false, fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	log.Printf("DeleteUser: Successfully deleted user ID %s", id.Hex())
+	return true, nil
 }
 
 // Register is the resolver for the register field.
@@ -272,8 +316,32 @@ func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
 }
 
 // Users is the resolver for the users field.
+// Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
-	panic(fmt.Errorf("not implemented: Users - users"))
+	// 1. Получить информацию о текущем пользователе из контекста
+	// AuthMiddleware уже проверила @auth и @hasRole
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return nil, fmt.Errorf("unauthorized: valid authentication and required role (PREDSEDATEL or DGIS) needed")
+	}
+
+	log.Printf("Users query: Requested by user ID %s", userClaims.UserID)
+
+	// 2. Вызвать сервис для получения списка всех пользователей
+	users, err := r.UserService.GetUsers(ctx)
+	if err != nil {
+		log.Printf("Users query: Failed to retrieve users from service: %v", err)
+		return nil, fmt.Errorf("could not retrieve users list: %w", err)
+	}
+
+	// 3. Очистить пароли перед отправкой (важно для безопасности)
+	for _, user := range users {
+		user.Password = "" // Никогда не отправляем хэши паролей клиенту
+	}
+
+	// 4. Вернуть список пользователей
+	log.Printf("Users query: Successfully retrieved %d users", len(users))
+	return users, nil
 }
 
 // User is the resolver for the user field.

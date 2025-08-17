@@ -23,7 +23,7 @@ var RoleHierarchy = map[UserRole]int{
 }
 
 type User struct {
-    ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"` // Исправлено: bson:"_id,omitempty"
+    ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
     Login        string             `json:"login" bson:"login"`
     Password     string             `json:"-" bson:"password"`
     Role         UserRole           `json:"role" bson:"role"`

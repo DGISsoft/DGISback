@@ -13,50 +13,40 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// NotificationService предоставляет методы для работы с уведомлениями
 type NotificationService struct {
 	*MongoService
 }
 
-// NewNotificationService создает новый сервис для работы с уведомлениями
 func NewNotificationService(mongoService *MongoService) *NotificationService {
 	return &NotificationService{MongoService: mongoService}
 }
 
-// CreateNotification создает новое уведомление (шаблон)
 func (s *NotificationService) CreateNotification(ctx context.Context, notif *models.Notification) error {
 	collection := s.GetCollection("notifications")
 	notif.CreatedAt = time.Now()
 
-	// --- ИСПРАВЛЕНИЕ ---
 	res, err := collection.InsertOne(ctx, notif)
 	if err != nil {
 		return fmt.Errorf("failed to create notification: %w", err)
 	}
 
-	// Получаем ID вставленного документа и устанавливаем его в объект notif
 	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
 		notif.ID = oid
 		log.Printf("NotificationService: Created notification with ID %s", notif.ID.Hex())
 	} else {
-		// Это маловероятно, но на всякий случай
 		return fmt.Errorf("failed to get inserted notification ID, expected ObjectID, got %T", res.InsertedID)
 	}
-	// --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 	
 	log.Printf("NotificationService: Created notification %s (Title: '%s')", notif.ID.Hex(), notif.Title)
 	return nil
 }
 
-// CreateUserNotifications создает записи UserNotification для списка пользователей
 func (s *NotificationService) CreateUserNotifications(ctx context.Context, notificationID primitive.ObjectID, recipientIDs []primitive.ObjectID, senderID primitive.ObjectID) error {
 	if len(recipientIDs) == 0 {
 		log.Printf("NotificationService: No recipients for notification %s, skipping user notification creation", notificationID.Hex())
-		return nil // Нет получателей
+		return nil
 	}
 
-	// Исключаем отправителя из списка получателей, если он там есть
-	// (опционально, зависит от бизнес-логики)
 	filteredRecipients := make([]primitive.ObjectID, 0, len(recipientIDs))
 	for _, id := range recipientIDs {
 		if id != senderID {
@@ -72,7 +62,6 @@ func (s *NotificationService) CreateUserNotifications(ctx context.Context, notif
 	collection := s.GetCollection("user_notifications")
 	createdAt := time.Now()
 
-	// Создаем срез документов для вставки
 	var docs []interface{}
 	for _, userID := range filteredRecipients {
 		docs = append(docs, models.UserNotification{
@@ -92,22 +81,21 @@ func (s *NotificationService) CreateUserNotifications(ctx context.Context, notif
 	return nil
 }
 
-// GetUserNotifications получает список уведомлений для конкретного пользователя
+
 func (s *NotificationService) GetUserNotifications(ctx context.Context, userID primitive.ObjectID, statuses []models.NotificationStatus, limit, offset int) ([]*models.UserNotification, error) {
 	collection := s.GetCollection("user_notifications")
 	
-	// Фильтр по пользователю
+
 	filter := bson.M{"userId": userID}
 	
-	// Если переданы статусы, добавляем фильтр по ним
+
 	if len(statuses) > 0 {
 		filter["status"] = bson.M{"$in": statuses}
 	}
 
-	// Опции сортировки (новые сверху) и пагинации
+
 	opts := options.Find()
-	opts.SetSort(bson.D{{Key: "createdAt",
-	Value: -1}}) // Сортировка по убыванию даты создания
+	opts.SetSort(bson.D{{Key: "createdAt", Value: -1}})
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 	}
@@ -116,7 +104,7 @@ func (s *NotificationService) GetUserNotifications(ctx context.Context, userID p
 	}
 
 	var userNotifs []*models.UserNotification
-	// Используем вашу существующую функцию FindMany с опциями
+
 	err := query.FindMany(ctx, collection, filter, &userNotifs, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user notifications: %w", err)
@@ -125,7 +113,7 @@ func (s *NotificationService) GetUserNotifications(ctx context.Context, userID p
 	return userNotifs, nil
 }
 
-// MarkAsRead помечает уведомление как прочитанное
+
 func (s *NotificationService) MarkAsRead(ctx context.Context, userNotifID primitive.ObjectID) error {
 	collection := s.GetCollection("user_notifications")
 	now := time.Now()
@@ -152,7 +140,6 @@ func (s *NotificationService) MarkAsRead(ctx context.Context, userNotifID primit
 	return nil
 }
 
-// DeleteUserNotification удаляет запись UserNotification (например, при архивации)
 func (s *NotificationService) DeleteUserNotification(ctx context.Context, userNotifID primitive.ObjectID) error {
 	collection := s.GetCollection("user_notifications")
 
@@ -169,7 +156,6 @@ func (s *NotificationService) DeleteUserNotification(ctx context.Context, userNo
 	return nil
 }
 
-// GetNotificationByID получает шаблон уведомления по ID
 func (s *NotificationService) GetNotificationByID(ctx context.Context, id primitive.ObjectID) (*models.Notification, error) {
 	collection := s.GetCollection("notifications")
 	var notif models.Notification
@@ -182,9 +168,7 @@ func (s *NotificationService) GetNotificationByID(ctx context.Context, id primit
 	return &notif, nil
 }
 
-// GetUserNotificationWithDetails получает UserNotification с полной информацией о самом уведомлении
 func (s *NotificationService) GetUserNotificationWithDetails(ctx context.Context, userNotifID primitive.ObjectID) (*models.UserNotification, *models.Notification, error) {
-	// 1. Получить UserNotification
 	userNotifColl := s.GetCollection("user_notifications")
 	var userNotif models.UserNotification
 	
@@ -193,7 +177,6 @@ func (s *NotificationService) GetUserNotificationWithDetails(ctx context.Context
 		return nil, nil, fmt.Errorf("failed to get user notification: %w", err)
 	}
 
-	// 2. Получить связанный Notification
 	notif, err := s.GetNotificationByID(ctx, userNotif.NotificationID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get notification details: %w", err)
@@ -202,7 +185,6 @@ func (s *NotificationService) GetUserNotificationWithDetails(ctx context.Context
 	return &userNotif, notif, nil
 }
 
-// GetUnreadCount получает количество непрочитанных уведомлений для пользователя
 func (s *NotificationService) GetUnreadCount(ctx context.Context, userID primitive.ObjectID) (int, error) {
 	collection := s.GetCollection("user_notifications")
 	
@@ -217,7 +199,6 @@ func (s *NotificationService) GetUnreadCount(ctx context.Context, userID primiti
 	return int(count), nil
 }
 
-// GetUserNotificationByID получает UserNotification по ID
 func (s *NotificationService) GetUserNotificationByID(ctx context.Context, id primitive.ObjectID) (*models.UserNotification, error) {
 	collection := s.GetCollection("user_notifications")
 	var userNotif models.UserNotification

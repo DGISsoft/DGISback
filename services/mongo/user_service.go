@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/DGISsoft/DGISback/models"               // Убедитесь в правильности пути
-	"github.com/DGISsoft/DGISback/services/mongo/query" // Убедитесь в правильности пути
+	"github.com/DGISsoft/DGISback/models"
+	"github.com/DGISsoft/DGISback/services/mongo/query"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -18,19 +18,19 @@ import (
 type UserService struct {
     *MongoService
 }
-// NewUserService создает новый сервис для работы с пользователями.
+
 func NewUserService(mongoService *MongoService) *UserService {
     return &UserService{MongoService: mongoService}
 }
 
-// GetUserByLogin получает пользователя по логину.
+
 func (s *UserService) GetUserByLogin(ctx context.Context, login string) (*models.User, error) {
-    collection := s.GetCollection("users") // <-- Доступ через встроенный MongoService
+    collection := s.GetCollection("users")
 
     var user models.User
     filter := bson.M{"login": login}
 
-    err := query.FindOne(ctx, collection, filter, &user) // <-- Использует query пакет
+    err := query.FindOne(ctx, collection, filter, &user)
     if err != nil {
         if err == mongo.ErrNoDocuments {
             return nil, fmt.Errorf("user not found")
@@ -41,13 +41,12 @@ func (s *UserService) GetUserByLogin(ctx context.Context, login string) (*models
     return &user, nil
 }
 
-// GetUserByID получает пользователя по ID.
 func (s *UserService) GetUserByID(ctx context.Context, id primitive.ObjectID) (*models.User, error) {
-    collection := s.GetCollection("users") // <-- Доступ через встроенный MongoService
+    collection := s.GetCollection("users") 
 
     var user models.User
 
-    err := query.FindByID(ctx, collection, id, &user) // <-- Использует query пакет
+    err := query.FindByID(ctx, collection, id, &user)
     if err != nil {
         if err == mongo.ErrNoDocuments {
             return nil, fmt.Errorf("user not found")
@@ -58,13 +57,12 @@ func (s *UserService) GetUserByID(ctx context.Context, id primitive.ObjectID) (*
     return &user, nil
 }
 
-// GetUsers получает список всех пользователей.
 func (s *UserService) GetUsers(ctx context.Context) ([]*models.User, error) {
-    collection := s.GetCollection("users") // <-- Доступ через встроенный MongoService
+    collection := s.GetCollection("users")
 
     var users []*models.User
 
-    err := query.FindMany(ctx, collection, bson.M{}, &users) // <-- Использует query пакет
+    err := query.FindMany(ctx, collection, bson.M{}, &users)
     if err != nil {
         return nil, fmt.Errorf("failed to get users: %w", err)
     }
@@ -72,43 +70,36 @@ func (s *UserService) GetUsers(ctx context.Context) ([]*models.User, error) {
     return users, nil
 }
 
-// CreateUser создает нового пользователя.
 func (s *UserService) CreateUser(ctx context.Context, user *models.User) error {
     collection := s.GetCollection("users")
 
-    // Хешируем пароль перед сохранением
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
     if err != nil {
         return fmt.Errorf("failed to hash password: %w", err)
     }
     user.Password = string(hashedPassword)
 
-    // Устанавливаем временные метки
     now := time.Now()
     user.CreatedAt = now
     user.UpdatedAt = now
 
-    // Выполняем вставку и получаем результат
     res, err := collection.InsertOne(ctx, user)
     if err != nil {
         return fmt.Errorf("failed to create user: %w", err)
     }
 
-    // Получаем ID вставленного документа и устанавливаем его в объект user
     if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
         user.ID = oid
         log.Printf("UserService: Created user with ID %s", user.ID.Hex())
     } else {
-        // Это маловероятно, но на всякий случай
         return fmt.Errorf("failed to get inserted user ID, expected ObjectID, got %T", res.InsertedID)
     }
 
     return nil
 }
 
-// UpdateUser обновляет пользователя.
 func (s *UserService) UpdateUser(ctx context.Context, id primitive.ObjectID, updateData bson.M) error {
-    collection := s.GetCollection("users") // <-- Доступ через встроенный MongoService
+    collection := s.GetCollection("users")
 
     updateQuery := bson.M{
         "$set":         updateData,
@@ -123,9 +114,8 @@ func (s *UserService) UpdateUser(ctx context.Context, id primitive.ObjectID, upd
     return nil
 }
 
-// DeleteUser удаляет пользователя.
 func (s *UserService) DeleteUser(ctx context.Context, id primitive.ObjectID) error {
-    collection := s.GetCollection("users") // <-- Доступ через встроенный MongoService
+    collection := s.GetCollection("users")
 
     _, err := collection.DeleteOne(ctx, bson.M{"_id": id})
     if err != nil {
@@ -135,18 +125,16 @@ func (s *UserService) DeleteUser(ctx context.Context, id primitive.ObjectID) err
     return nil
 }
 
-// CheckPassword проверяет пароль пользователя.
 func (s *UserService) CheckPassword(hashedPassword, password string) bool {
     err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
     return err == nil
 }
 
-// ChangePassword изменяет пароль пользователя.
 func (s *UserService) ChangePassword(ctx context.Context, id primitive.ObjectID, newPassword string) error {
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
     if err != nil {
         return fmt.Errorf("failed to hash password: %w", err)
     }
 
-    return s.UpdateUser(ctx, id, bson.M{"password": string(hashedPassword)}) // <-- Вызов другого метода UserService
+    return s.UpdateUser(ctx, id, bson.M{"password": string(hashedPassword)})
 }

@@ -24,7 +24,7 @@ import (
 
 const defaultPort = "8080"
 
-// Константы для первого администратора
+
 const (
     defaultAdminLogin    = "admin"
     defaultAdminPassword = "admin"

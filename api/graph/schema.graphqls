@@ -130,5 +130,5 @@ type Mutation {
 }
 
 type Subscription {
-  unreadNotificationsCountChanged(userId: ID!): Int!
+  unreadNotificationsCountChanged: Int!
 }

@@ -15,6 +15,7 @@ require (
 	github.com/DGISsoft/DGISback/middleware v0.0.0-20250814153110-aac82708c6ce
 	github.com/DGISsoft/DGISback/models v0.0.0-20250817192649-ff1647db30cf
 	github.com/DGISsoft/DGISback/services v0.0.0-20250821061323-11d96099f993
+	github.com/gorilla/websocket v1.5.3
 )
 
 require (
@@ -24,7 +25,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect

@@ -103,7 +103,7 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		UnreadNotificationsCountChanged func(childComplexity int, userID primitive.ObjectID) int
+		UnreadNotificationsCountChanged func(childComplexity int) int
 	}
 
 	User struct {
@@ -149,7 +149,7 @@ type QueryResolver interface {
 	UnreadNotificationsCount(ctx context.Context) (int, error)
 }
 type SubscriptionResolver interface {
-	UnreadNotificationsCountChanged(ctx context.Context, userID primitive.ObjectID) (<-chan int, error)
+	UnreadNotificationsCountChanged(ctx context.Context) (<-chan int, error)
 }
 type UserResolver interface {
 	Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error)
@@ -425,12 +425,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			break
 		}
 
-		args, err := ec.field_Subscription_unreadNotificationsCountChanged_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.UnreadNotificationsCountChanged(childComplexity, args["userId"].(primitive.ObjectID)), true
+		return e.complexity.Subscription.UnreadNotificationsCountChanged(childComplexity), true
 
 	case "User.building":
 		if e.complexity.User.Building == nil {
@@ -790,17 +785,6 @@ func (ec *executionContext) field_Query_myNotifications_args(ctx context.Context
 		return nil, err
 	}
 	args["offset"] = arg2
-	return args, nil
-}
-
-func (ec *executionContext) field_Subscription_unreadNotificationsCountChanged_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "userId", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
-	if err != nil {
-		return nil, err
-	}
-	args["userId"] = arg0
 	return args, nil
 }
 
@@ -2531,7 +2515,7 @@ func (ec *executionContext) _Subscription_unreadNotificationsCountChanged(ctx co
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().UnreadNotificationsCountChanged(rctx, fc.Args["userId"].(primitive.ObjectID))
+		return ec.resolvers.Subscription().UnreadNotificationsCountChanged(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2562,7 +2546,7 @@ func (ec *executionContext) _Subscription_unreadNotificationsCountChanged(ctx co
 	}
 }
 
-func (ec *executionContext) fieldContext_Subscription_unreadNotificationsCountChanged(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Subscription_unreadNotificationsCountChanged(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Subscription",
 		Field:      field,
@@ -2571,17 +2555,6 @@ func (ec *executionContext) fieldContext_Subscription_unreadNotificationsCountCh
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
 		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_unreadNotificationsCountChanged_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }

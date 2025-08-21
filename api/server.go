@@ -17,6 +17,7 @@ import (
 	"github.com/DGISsoft/DGISback/models"
 	serv "github.com/DGISsoft/DGISback/services/mongo"
 	"github.com/DGISsoft/DGISback/services/redis"
+	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -116,7 +117,28 @@ func main() {
         AllowedHeaders: []string{"*"},
     })
     srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
-    srv.AddTransport(transport.Websocket{})
+srv.AddTransport(transport.Websocket{
+	KeepAlivePingInterval: 10 * time.Second,
+	Upgrader: websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			// Настройте разрешенные Origins для вашего фронтенда
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true // Разрешить запросы без Origin (например, из инструментов тестирования)
+			}
+			// Замените на ваш(и) разрешенный(ные) origin(s)
+			allowedOrigins := []string{"http://localhost:5173"} 
+			for _, allowed := range allowedOrigins {
+				if origin == allowed {
+					return true
+				}
+			}
+			return false
+		},
+	},
+	// InitFunc не используется для аутентификации через HttpOnly cookie,
+	// так как мы делаем это в AuthMiddleware.
+})
     srv.AddTransport(transport.Options{})
     srv.AddTransport(transport.GET{})
     srv.AddTransport(transport.POST{})

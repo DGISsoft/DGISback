@@ -9,14 +9,18 @@ import (
 )
 
 var (
+	// Service - глобальный экземпляр RedisService
 	Service *RedisService
-	ctx     = context.Background()
+	// Глобальный контекст больше не используется напрямую в Publish/Subscribe
+	// ctx = context.Background() - УДАЛЕН
 )
 
+// RedisService предоставляет методы для работы с Redis через RedisClient
 type RedisService struct {
 	redisClient RedisClient
 }
 
+// Init инициализирует RedisService
 func Init(host string, password string, db int) {
 	client := NewRedisClient(host, password, db)
 	Service = NewRedisService(client)
@@ -28,10 +32,12 @@ func Init(host string, password string, db int) {
 	}
 }
 
+// NewRedisService создает новый экземпляр RedisService
 func NewRedisService(redisClient RedisClient) *RedisService {
 	return &RedisService{redisClient: redisClient}
 }
 
+// SetValue устанавливает значение для ключа
 func (s *RedisService) SetValue(key string, value interface{}) error {
 	err := s.redisClient.Set(key, value)
 	if err != nil {
@@ -41,6 +47,7 @@ func (s *RedisService) SetValue(key string, value interface{}) error {
 	return nil
 }
 
+// GetValue получает значение по ключу
 func (s *RedisService) GetValue(key string) (string, error) {
 	value, err := s.redisClient.Get(key)
 	if err == redis.Nil {
@@ -49,6 +56,7 @@ func (s *RedisService) GetValue(key string) (string, error) {
 	return value, nil
 }
 
+// DeleteValue удаляет значение по ключу
 func (s *RedisService) DeleteValue(key string) error {
 	err := s.redisClient.Delete(key)
 	if err != nil {
@@ -58,11 +66,14 @@ func (s *RedisService) DeleteValue(key string) error {
 	return nil
 }
 
-
-func (s *RedisService) Publish(channel string, message interface{}) error {
+// Publish публикует сообщение в канал, принимая context для правильного управления
+func (s *RedisService) Publish(ctx context.Context, channel string, message interface{}) error {
+	// Передаем контекст из вызывающего кода
 	return s.redisClient.Publish(ctx, channel, message)
 }
 
-func (s *RedisService) Subscribe(channel string) *redis.PubSub {
-	return s.redisClient.Subscribe(channel)
+// Subscribe подписывается на канал, принимая context для правильного управления
+func (s *RedisService) Subscribe(ctx context.Context, channel string) *redis.PubSub {
+	// Передаем контекст из вызывающего кода
+	return s.redisClient.Subscribe(ctx, channel)
 }

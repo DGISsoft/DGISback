@@ -510,78 +510,78 @@ func (r *queryResolver) UnreadNotificationsCount(ctx context.Context) (int, erro
 }
 
 // UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
+// UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
 func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Context) (<-chan int, error) {
-	// Извлекаем информацию о пользователе из контекста, установленного AuthMiddleware
+	// 1. Извлекаем информацию о пользователе из контекста
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
-		// Возвращаем ошибку, если пользователь не аутентифицирован
-		// Это остановит подписку на этапе установления соединения
+		log.Println("UnreadNotificationsCountChanged: User NOT authenticated")
 		return nil, fmt.Errorf("unauthorized: valid authentication cookie is required for subscription")
 	}
+	log.Printf("UnreadNotificationsCountChanged: User authenticated, ID: %s", userClaims.UserID)
 
-	// Получаем ID пользователя из токена
+	// 2. Получаем ID пользователя из токена
 	userID, err := primitive.ObjectIDFromHex(userClaims.UserID)
 	if err != nil {
+		// Лучше логировать ошибку
+		log.Printf("UnreadNotificationsCountChanged: Invalid user ID format: %s, error: %v", userClaims.UserID, err)
 		return nil, fmt.Errorf("invalid user ID in authentication token")
 	}
 
-	// Создаем канал для отправки обновлений клиенту
-	notificationsChannel := make(chan int, 1) // Буферизованный канал для предотвращения блокировки
+	// 3. Создаем канал для отправки обновлений клиенту
+	notificationsChannel := make(chan int, 1) 
 
-	// Формируем уникальный ключ канала Redis Pub/Sub для этого пользователя
-	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex())
-	log.Printf("UnreadNotificationsCountChanged: User %s subscribing to Redis channel: %s", userID.Hex(), redisChannel) // Добавлен лог
+	// 4. Формируем уникальный ключ канала Redis Pub/Sub для этого пользователя
+	// ВАЖНО: Имя канала ДОЛЖНО быть в точности таким же, как в MarkNotificationAsRead
+	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex()) 
+	log.Printf("UnreadNotificationsCountChanged: User %s subscribing to Redis channel: %s", userID.Hex(), redisChannel) 
 
-	// Подписываемся на Redis канал
-	// Предполагается, что r.RedisService имеет метод Subscribe, возвращающий объект,
-	// совместимый с go-redis pubsub (например, *redis.PubSub)
-	// ВАЖНО: Убедитесь, что ваш метод Subscribe принимает context.Context
-	// Передаем context в Subscribe
-	pubsub := r.RedisService.Subscribe(redisChannel) 
+	// 5. Подписываемся на Redis канал
+	// Убедитесь, что Subscribe принимает только имя канала, как строку.
+	// Если ваша реализация требует context, используйте его.
+	// pubsub := r.RedisService.Subscribe(ctx, redisChannel) // Если метод принимает context
+	pubsub := r.RedisService.Subscribe(redisChannel) // Судя по вашему коду redis.Service, это правильный вызов
 
-	// Запускаем горутину для обработки подписки на Redis и отправки данных клиенту
+	// 6. Запускаем горутину для обработки подписки на Redis
 	go func() {
-		// defer для корректного закрытия ресурсов при выходе из горутины
+		// defer для корректного закрытия ресурсов
 		defer close(notificationsChannel)
 		defer func() {
 			if pubsub != nil {
-				pubsub.Close() // Закрываем подписку на Redis при завершении
-				log.Printf("UnreadNotificationsCountChanged: Closed Redis subscription for user %s on channel %s", userID.Hex(), redisChannel) // Добавлен лог
+				err := pubsub.Close() // Закрываем подписку на Redis
+				if err != nil {
+					log.Printf("UnreadNotificationsCountChanged: Error closing Redis subscription for user %s on channel %s: %v", userID.Hex(), redisChannel, err)
+				} else {
+					log.Printf("UnreadNotificationsCountChanged: Closed Redis subscription for user %s on channel %s", userID.Hex(), redisChannel)
+				}
 			}
 		}()
 
-		// Отправляем начальное значение количества непрочитанных уведомлений
+		// 7. Отправляем начальное значение
 		initialCount, err := r.NotificationService.GetUnreadCount(ctx, userID)
 		if err != nil {
 			log.Printf("UnreadNotificationsCountChanged: Failed to get initial unread count for user %s: %v", userID.Hex(), err)
-			// Можно вернуть 0 или просто не отправлять ничего
-			// Здесь мы отправим 0, чтобы клиент получил хотя бы один результат
-			initialCount = 0
+			initialCount = 0 // Отправляем 0 в случае ошибки
 		}
 
-		log.Printf("UnreadNotificationsCountChanged: Sending initial unread count %d to user %s", initialCount, userID.Hex()) // Добавлен лог
+		log.Printf("UnreadNotificationsCountChanged: Sending initial unread count %d to user %s", initialCount, userID.Hex())
 
-		// Пытаемся отправить начальное значение в канал подписки
-		// Используем select с ctx.Done() для обработки отмены контекста
 		select {
 		case notificationsChannel <- initialCount:
 			log.Printf("UnreadNotificationsCountChanged: Sent initial unread count %d to user %s", initialCount, userID.Hex())
 		case <-ctx.Done():
-			// Контекст был отменен (клиент отключился) до отправки начального значения
 			log.Printf("UnreadNotificationsCountChanged: Client disconnected before initial count sent for user %s", userID.Hex())
 			return
 		}
 
-		// Цикл обработки сообщений из Redis
-		// Используем pubsub.Channel() для получения канала сообщений
+		// 8. Цикл обработки сообщений из Redis
 		// Получаем канал сообщений из pubsub
+		// Убедитесь, что pubsub.Channel() возвращает канал, совместимый с *redis.Message
 		redisMsgChannel := pubsub.Channel()
-		log.Printf("UnreadNotificationsCountChanged: Listening for messages on Redis channel for user %s", userID.Hex()) // Добавлен лог
+		log.Printf("UnreadNotificationsCountChanged: Listening for messages on Redis channel for user %s", userID.Hex())
 		for {
 			select {
-			case <-ctx.Done():
-				// Контекст отменен, обычно это означает, что клиент отключился.
-				// Выполняем defer и выходим из горутины.
+			case <-ctx.Done(): // Клиент отключился
 				log.Printf("UnreadNotificationsCountChanged: Context cancelled, unsubscribing user %s from Redis channel %s", userID.Hex(), redisChannel)
 				return
 			case msg, ok := <-redisMsgChannel: // Получаем сообщение из канала Redis
@@ -590,38 +590,38 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 					log.Printf("UnreadNotificationsCountChanged: Redis message channel closed for user %s", userID.Hex())
 					return
 				}
+				// Проверяем, что msg не nil (на всякий случай)
 				if msg != nil {
+					// Логируем получение сообщения. Это ключевой момент.
+					// Если вы НЕ ВИДИТЕ эту строку в логах после публикации в Redis,
+					// значит, подписка на Redis не работает.
 					log.Printf("UnreadNotificationsCountChanged: Received message on Redis channel for user %s: Channel=%s, Payload=%s", userID.Hex(), msg.Channel, msg.Payload)
-					// При получении сообщения в Redis канале, получаем актуальное количество
+					
+					// 9. Получаем актуальное количество
 					currentCount, err := r.NotificationService.GetUnreadCount(ctx, userID)
 					if err != nil {
 						log.Printf("UnreadNotificationsCountChanged: Failed to get unread count for user %s after Redis message: %v", userID.Hex(), err)
-						// Можно отправить ошибку клиенту или просто продолжить
-						// Здесь мы продолжаем, надеясь на следующее сообщение
-						continue
+						continue // Продолжаем цикл, надеясь на следующее сообщение
 					}
 
-					log.Printf("UnreadNotificationsCountChanged: Sending updated unread count %d to user %s", currentCount, userID.Hex()) // Добавлен лог
+					log.Printf("UnreadNotificationsCountChanged: Sending updated unread count %d to user %s", currentCount, userID.Hex())
 
-					// Отправляем обновленное количество клиенту через GraphQL подписку
+					// 10. Отправляем обновленное количество клиенту
 					select {
 					case notificationsChannel <- currentCount:
 						log.Printf("UnreadNotificationsCountChanged: Sent updated unread count %d to user %s", currentCount, userID.Hex())
-					case <-ctx.Done():
-						// Клиент отключился во время отправки
+					case <-ctx.Done(): // Клиент отключился во время отправки
 						log.Printf("UnreadNotificationsCountChanged: Client disconnected while sending update to user %s", userID.Hex())
 						return
 					}
 				} else {
-					// msg == nil, что может означать закрытие канала или другую проблему
-					// Этот случай обрабатывается проверкой `ok` выше.
 					log.Printf("UnreadNotificationsCountChanged: Received nil message on Redis channel for user %s", userID.Hex())
 				}
 			}
 		}
 	}()
 
-	// Возвращаем канал, из которого GraphQL сервер будет читать данные для клиента
+	// 11. Возвращаем канал
 	return notificationsChannel, nil
 }
 

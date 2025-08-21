@@ -85,7 +85,8 @@ func (s *NotificationService) CreateUserNotifications(ctx context.Context, notif
 	
 	// Оповещаем всех получателей о новых уведомлениях
 	for _, userID := range filteredRecipients {
-		s.NotifyUserNotificationChanged(userID)
+		// Передаем ctx в NotifyUserNotificationChanged
+		s.NotifyUserNotificationChanged(ctx, userID)
 	}
 	
 	log.Printf("NotificationService: Created %d user notifications for notification %s", len(docs), notificationID.Hex())
@@ -163,7 +164,8 @@ func (s *NotificationService) MarkAsRead(ctx context.Context, userNotifID primit
 	
 	// Оповещаем подписчиков только если статус действительно изменился
 	if oldNotif.Status != models.NotificationStatusRead {
-		s.NotifyUserNotificationChanged(oldNotif.UserID)
+		// Передаем ctx в NotifyUserNotificationChanged
+		s.NotifyUserNotificationChanged(ctx, oldNotif.UserID)
 	}
 	
 	log.Printf("NotificationService: Marked user notification %s as read", userNotifID.Hex())
@@ -189,7 +191,8 @@ func (s *NotificationService) DeleteUserNotification(ctx context.Context, userNo
 	}
 	
 	// Оповещаем подписчиков об удалении
-	s.NotifyUserNotificationChanged(userNotif.UserID)
+	// Передаем ctx в NotifyUserNotificationChanged
+	s.NotifyUserNotificationChanged(ctx, userNotif.UserID)
 	
 	log.Printf("NotificationService: Deleted user notification %s", userNotifID.Hex())
 	return nil
@@ -239,12 +242,13 @@ func (s *NotificationService) GetUnreadCount(ctx context.Context, userID primiti
 }
 
 // Метод для оповещения подписчиков об изменении уведомлений
-func (s *NotificationService) NotifyUserNotificationChanged(userID primitive.ObjectID) {
+// Теперь принимает context.Context
+func (s *NotificationService) NotifyUserNotificationChanged(ctx context.Context, userID primitive.ObjectID) {
 	// Публикуем сообщение в Redis канал
 	channel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex())
 	
-	// Отправляем сообщение через Redis
-	if err := s.RedisService.Publish(channel, "changed"); err != nil {
+	// Отправляем сообщение через Redis, передавая ctx
+	if err := s.RedisService.Publish(ctx, channel, "changed"); err != nil {
 		log.Printf("Failed to publish notification change for user %s: %v", userID.Hex(), err)
 	}
 }

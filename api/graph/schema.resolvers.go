@@ -492,7 +492,63 @@ func (r *queryResolver) UnreadNotificationsCount(ctx context.Context) (int, erro
 
 // UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
 func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Context, userID primitive.ObjectID) (<-chan int, error) {
-	panic(fmt.Errorf("not implemented: UnreadNotificationsCountChanged - unreadNotificationsCountChanged"))
+	// Создаем канал для отправки обновлений
+	notificationsChannel := make(chan int, 1)
+	
+	// Ключ для Redis pub/sub
+	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex())
+	
+	// Подписываемся на Redis канал
+	pubsub := r.RedisService.Subscribe(redisChannel)
+	
+	// Запускаем горутину для обработки подписки
+	go func() {
+		defer close(notificationsChannel)
+		defer pubsub.Close()
+		
+		// Отправляем начальное значение
+		count, err := r.NotificationService.GetUnreadCount(ctx, userID)
+		if err != nil {
+			log.Printf("Failed to get initial unread count for user %s: %v", userID.Hex(), err)
+			return
+		}
+		
+		// Пытаемся отправить начальное значение
+		select {
+		case notificationsChannel <- count:
+		case <-ctx.Done():
+			return
+		}
+		
+		// Обрабатываем сообщения из Redis
+		for {
+			select {
+			case <-ctx.Done():
+				// Контекст отменен (клиент отключился)
+				log.Printf("Unsubscribing user %s from notifications", userID.Hex())
+				return
+			case msg := <-pubsub.Channel():
+				// Получено сообщение из Redis
+				if msg != nil {
+					// Получаем актуальное значение
+					count, err := r.NotificationService.GetUnreadCount(ctx, userID)
+					if err != nil {
+						log.Printf("Failed to get unread count for user %s: %v", userID.Hex(), err)
+						continue
+					}
+					
+					// Отправляем обновленное значение
+					select {
+					case notificationsChannel <- count:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}
+	}()
+	
+	return notificationsChannel, nil
 }
 
 // Markers is the resolver for the markers field.

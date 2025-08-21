@@ -16,6 +16,7 @@ import (
 	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models"
 	serv "github.com/DGISsoft/DGISback/services/mongo"
+	"github.com/DGISsoft/DGISback/services/redis"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -28,6 +29,9 @@ const defaultPort = "8080"
 const (
     defaultAdminLogin    = "admin"
     defaultAdminPassword = "admin"
+    redisAddr     = "localhost:6379"
+	redisPassword = ""
+	redisDB       = 0
 )
 
 func createDefaultAdmin(userService *serv.UserService) {
@@ -78,12 +82,17 @@ func main() {
         }
     }()
 
+    redis.Init(redisAddr, redisPassword, redisDB)
+	if redis.Service == nil {
+		log.Fatal("Failed to initialize Redis service")
+	}
+
     database := client.Database("dgis-db")
 
     mongoService := serv.New(database)
     userService := serv.NewUserService(mongoService)
     markerService := serv.NewMarkerService(mongoService)
-    notificationService := serv.NewNotificationService(mongoService)
+    notificationService := serv.NewNotificationService(mongoService, redis.Service)
 
 
     createDefaultAdmin(userService)
@@ -93,6 +102,7 @@ func main() {
         UserService: userService,
         MarkerService: markerService,
         NotificationService: notificationService,
+        RedisService: redis.Service,
     }
     port := os.Getenv("PORT")
     if port == "" {
@@ -106,7 +116,7 @@ func main() {
         AllowedHeaders: []string{"*"},
     })
     srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
-
+    srv.AddTransport(transport.Websocket{})
     srv.AddTransport(transport.Options{})
     srv.AddTransport(transport.GET{})
     srv.AddTransport(transport.POST{})

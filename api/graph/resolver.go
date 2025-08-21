@@ -1,6 +1,9 @@
 package graph
 
-import "github.com/DGISsoft/DGISback/services/mongo"
+import (
+	"github.com/DGISsoft/DGISback/services/mongo"
+	"github.com/DGISsoft/DGISback/services/redis"
+)
 
 // This file will not be regenerated automatically.
 //
@@ -9,4 +12,5 @@ type Resolver struct{
 	UserService *mongo.UserService
 	MarkerService *mongo.MarkerService
 	NotificationService *mongo.NotificationService
+	RedisService *redis.RedisService
 }

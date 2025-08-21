@@ -11,14 +11,16 @@ require (
 )
 
 require (
-	github.com/DGISsoft/DGISback/env v0.0.0-20250817202043-eb2c32c38dfe
+	github.com/DGISsoft/DGISback/env v0.0.0-20250821061323-11d96099f993
 	github.com/DGISsoft/DGISback/middleware v0.0.0-20250814153110-aac82708c6ce
 	github.com/DGISsoft/DGISback/models v0.0.0-20250817192649-ff1647db30cf
-	github.com/DGISsoft/DGISback/services v0.0.0-20250817192649-ff1647db30cf
+	github.com/DGISsoft/DGISback/services v0.0.0-20250821061323-11d96099f993
 )
 
 require (
 	github.com/agnivade/levenshtein v1.2.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -27,6 +29,7 @@ require (
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
+	github.com/redis/go-redis/v9 v9.12.1 // indirect
 	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect

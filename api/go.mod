@@ -12,9 +12,9 @@ require (
 
 require (
 	github.com/DGISsoft/DGISback/env v0.0.0-20250821061323-11d96099f993
-	github.com/DGISsoft/DGISback/middleware v0.0.0-20250821145328-6682263d86ba
+	github.com/DGISsoft/DGISback/middleware v0.0.0-20250821151523-43eb67e77f10
 	github.com/DGISsoft/DGISback/models v0.0.0-20250817192649-ff1647db30cf
-	github.com/DGISsoft/DGISback/services v0.0.0-20250821061323-11d96099f993
+	github.com/DGISsoft/DGISback/services v0.0.0-20250821151523-43eb67e77f10
 	github.com/gorilla/websocket v1.5.3
 )
 

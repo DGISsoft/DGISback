@@ -26,135 +26,160 @@ import (
 
 const defaultPort = "8080"
 
-
 const (
-    defaultAdminLogin    = "admin"
-    defaultAdminPassword = "admin"
-    redisAddr     = "localhost:6379"
-	redisPassword = ""
-	redisDB       = 0
+	defaultAdminLogin    = "admin"
+	defaultAdminPassword = "admin"
+	redisAddr            = "localhost:6379"
+	redisPassword        = ""
+	redisDB              = 0
 )
 
 func createDefaultAdmin(userService *serv.UserService) {
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-    users, err := userService.GetUsers(ctx)
-    if err != nil {
-        log.Printf("Warning: Failed to check for existing users: %v", err)
-        return
-    }
+	users, err := userService.GetUsers(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to check for existing users: %v", err)
+		return
+	}
 
+	if len(users) > 0 {
+		log.Println("Users found in database. Skipping default admin creation.")
+		return
+	}
 
-    if len(users) > 0 {
-        log.Println("Users found in database. Skipping default admin creation.")
-        return
-    }
+	log.Println("No users found. Creating default admin user...")
 
-    log.Println("No users found. Creating default admin user...")
+	adminUser := &models.User{
+		Login:        defaultAdminLogin,
+		Password:     defaultAdminPassword,
+		Role:         models.UserRolePredsedatel,
+		FullName:     "Default Administrator",
+		PhoneNumber:  "+00000000000",
+		TelegramTag:  "@admin",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
 
-    adminUser := &models.User{
-        Login:       defaultAdminLogin,
-        Password:    defaultAdminPassword,
-        Role:        models.UserRolePredsedatel,
-        FullName:    "Default Administrator",
-        PhoneNumber: "+00000000000",
-        TelegramTag: "@admin",
-        CreatedAt:   time.Now(),
-        UpdatedAt:   time.Now(),
-    }
+	if err := userService.CreateUser(ctx, adminUser); err != nil {
+		log.Printf("Error: Failed to create default admin user: %v", err)
+		return
+	}
 
-    if err := userService.CreateUser(ctx, adminUser); err != nil {
-        log.Printf("Error: Failed to create default admin user: %v", err)
-        return
-    }
+	log.Printf("Default admin user '%s' created successfully!", defaultAdminLogin)
+}
 
-    log.Printf("Default admin user '%s' created successfully!", defaultAdminLogin)
+// loggingMiddleware добавляет подробное логирование для отладки запросов, особенно WebSocket upgrade.
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[HTTP] START: %s %s", r.Method, r.URL.Path)
+		log.Printf("[HTTP] Headers: Connection=%s, Upgrade=%s, Origin=%s, Sec-WebSocket-Key=%.10s...", 
+			r.Header.Get("Connection"), r.Header.Get("Upgrade"), r.Header.Get("Origin"), r.Header.Get("Sec-WebSocket-Key"))
+
+		// Проверяем, является ли это запросом на обновление до WebSocket
+		if r.Header.Get("Connection") == "Upgrade" && r.Header.Get("Upgrade") == "websocket" {
+			log.Printf("[HTTP] -> This is a WebSocket Upgrade request")
+		}
+
+		// Вызываем следующий обработчик в цепочке
+		next.ServeHTTP(w, r)
+
+		log.Printf("[HTTP] END: %s %s", r.Method, r.URL.Path)
+	})
 }
 
 func main() {
-    client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017")) // Ваш URI
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer func() {
-        if err := client.Disconnect(context.TODO()); err != nil {
-            log.Printf("Error disconnecting from MongoDB: %v", err)
-        }
-    }()
+	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017")) // Ваш URI
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err := client.Disconnect(context.TODO()); err != nil {
+			log.Printf("Error disconnecting from MongoDB: %v", err)
+		}
+	}()
 
-    redis.Init(redisAddr, redisPassword, redisDB)
+	redis.Init(redisAddr, redisPassword, redisDB)
 	if redis.Service == nil {
 		log.Fatal("Failed to initialize Redis service")
 	}
 
-    database := client.Database("dgis-db")
+	database := client.Database("dgis-db")
 
-    mongoService := serv.New(database)
-    userService := serv.NewUserService(mongoService)
-    markerService := serv.NewMarkerService(mongoService)
-    notificationService := serv.NewNotificationService(mongoService, redis.Service)
+	mongoService := serv.New(database)
+	userService := serv.NewUserService(mongoService)
+	markerService := serv.NewMarkerService(mongoService)
+	notificationService := serv.NewNotificationService(mongoService, redis.Service)
 
+	createDefaultAdmin(userService)
 
-    createDefaultAdmin(userService)
+	resolver := &graph.Resolver{
+		UserService:          userService,
+		MarkerService:        markerService,
+		NotificationService:  notificationService,
+		RedisService:         redis.Service,
+	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = defaultPort
+	}
 
-
-    resolver := &graph.Resolver{
-        UserService: userService,
-        MarkerService: markerService,
-        NotificationService: notificationService,
-        RedisService: redis.Service,
-    }
-    port := os.Getenv("PORT")
-    if port == "" {
-        port = defaultPort
-    }
-
-    c := cors.New(cors.Options{
-        AllowedOrigins: []string{"http://localhost:5173"},
-        AllowCredentials: true,
-        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-        AllowedHeaders: []string{"*"},
-    })
-    srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
-srv.AddTransport(transport.Websocket{
-	KeepAlivePingInterval: 10 * time.Second,
-	Upgrader: websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			// Настройте разрешенные Origins для вашего фронтенда
-			origin := r.Header.Get("Origin")
-			if origin == "" {
-				return true // Разрешить запросы без Origin (например, из инструментов тестирования)
-			}
-			// Замените на ваш(и) разрешенный(ные) origin(s)
-			allowedOrigins := []string{"http://localhost:5173"} 
-			for _, allowed := range allowedOrigins {
-				if origin == allowed {
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+	})
+	
+	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
+	
+	// --- Обновленная настройка Websocket Transport с логированием в CheckOrigin ---
+	srv.AddTransport(transport.Websocket{
+		KeepAlivePingInterval: 10 * time.Second,
+		Upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				log.Printf("[WS] Upgrade request from Origin: '%s'", r.Header.Get("Origin"))
+				origin := r.Header.Get("Origin")
+				if origin == "" {
+					log.Println("[WS] Allowing request with empty Origin")
 					return true
 				}
-			}
-			return false
+				allowedOrigins := []string{"http://localhost:5173"}
+				for _, allowed := range allowedOrigins {
+					if origin == allowed {
+						log.Printf("[WS] Allowing request from Origin: %s", origin)
+						return true
+					}
+				}
+				log.Printf("[WS] Denying request from Origin: %s", origin)
+				return false
+			},
 		},
-	},
-	// InitFunc не используется для аутентификации через HttpOnly cookie,
-	// так как мы делаем это в AuthMiddleware.
-})
-    srv.AddTransport(transport.Options{})
-    srv.AddTransport(transport.GET{})
-    srv.AddTransport(transport.POST{})
+	})
+	// --- Конец обновленной настройки ---
+	
+	srv.AddTransport(transport.Options{})
+	srv.AddTransport(transport.GET{})
+	srv.AddTransport(transport.POST{})
 
-    srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-    srv.Use(extension.Introspection{})
-    srv.Use(extension.AutomaticPersistedQuery{
-        Cache: lru.New[string](100),
-    })
-    muxGraphql := http.NewServeMux()
+	srv.Use(extension.Introspection{})
+	srv.Use(extension.AutomaticPersistedQuery{
+		Cache: lru.New[string](100),
+	})
+	
+	muxGraphql := http.NewServeMux()
 	muxGraphql.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	muxGraphql.Handle("/query", c.Handler(middleware.AuthMiddleware(srv)))
+	
+	// Применяем loggingMiddleware, затем CORS, затем AuthMiddleware к srv
+	// Это гарантирует, что все запросы на /query (включая WS upgrade) будут залогированы,
+	// пройдут CORS, а затем AuthMiddleware перед попаданием в gqlgen handler (srv).
+	muxGraphql.Handle("/query", loggingMiddleware(c.Handler(middleware.AuthMiddleware(srv))))
 
-    log.Printf("Starting GraphQL server on :%s", port)
-    if err := http.ListenAndServe(":"+port, muxGraphql); err != nil {
-        log.Fatalf("GraphQL server error: %v", err)
-    }
+	log.Printf("Starting GraphQL server on :%s", port)
+	if err := http.ListenAndServe(":"+port, muxGraphql); err != nil {
+		log.Fatalf("GraphQL server error: %v", err)
+	}
 }

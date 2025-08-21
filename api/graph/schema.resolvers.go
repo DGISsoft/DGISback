@@ -238,7 +238,6 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 		return false, fmt.Errorf("invalid sender ID in token")
 	}
 
-	// input.UserIds уже []primitive.ObjectID, преобразование не нужно
 	recipientIDs := input.UserIds
 
 	// 1. Создать шаблон уведомления
@@ -261,6 +260,8 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 		return false, fmt.Errorf("could not send notification")
 	}
 
+	// 2. Создать пользовательские уведомления и оповестить получателей
+	// ВАЖНО: Передаем ctx в CreateUserNotifications
 	err = r.NotificationService.CreateUserNotifications(ctx, notification.ID, recipientIDs, senderID)
 	if err != nil {
 		log.Printf("SendNotification: Failed to create user notifications: %v", err)
@@ -312,7 +313,7 @@ func (r *mutationResolver) MarkNotificationAsRead(ctx context.Context, id primit
 	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", requesterID.Hex())
 	log.Printf("MarkNotificationAsRead: Attempting to publish to Redis channel: %s", redisChannel) // Добавлен лог
 	// Предполагается, что Publish принимает context
-	err = r.RedisService.Publish(redisChannel, "updated") 
+	err = r.RedisService.Publish(ctx, redisChannel, "updated") 
 	if err != nil {
 		// Логируем ошибку, но не возвращаем её клиенту, 
 		// так как основная операция (mark as read) прошла успешно
@@ -540,7 +541,7 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 	// Убедитесь, что Subscribe принимает только имя канала, как строку.
 	// Если ваша реализация требует context, используйте его.
 	// pubsub := r.RedisService.Subscribe(ctx, redisChannel) // Если метод принимает context
-	pubsub := r.RedisService.Subscribe(redisChannel) // Судя по вашему коду redis.Service, это правильный вызов
+	pubsub := r.RedisService.Subscribe(ctx, redisChannel) // Судя по вашему коду redis.Service, это правильный вызов
 
 	// 6. Запускаем горутину для обработки подписки на Redis
 	go func() {

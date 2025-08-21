@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"testing"
 	"time"
 
+	"github.com/DGISsoft/DGISback/env"
 	"github.com/DGISsoft/DGISback/models"
 	"github.com/DGISsoft/DGISback/services/mongo/command"
+	red "github.com/DGISsoft/DGISback/services/redis"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -58,4 +61,22 @@ func TestMongo(t *testing.T) {
 	err = collection.FindOne(ctx, primitive.M{"_id": user.ID}).Decode(&insertedUser)
     assert.Error(t, err)
     assert.Equal(t, mongo.ErrNoDocuments, err)
+}
+
+
+func TestRedis(t *testing.T) {
+
+	redisHost := env.GetEnv("REDIS_HOST", "")
+	redisClient := red.NewRedisClient(redisHost, "", 0)
+	if redisClient == nil {
+		t.Fatal("Redis client is nil")
+	}
+	redisService := red.NewRedisService(redisClient)
+	redisService.SetValue("test_key", "test_value")
+	value, err := redisService.GetValue("test_key")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(value)
+	redisService.DeleteValue("test_key")
 }

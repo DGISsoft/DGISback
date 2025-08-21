@@ -41,6 +41,12 @@ type LoginInput struct {
 type Mutation struct {
 }
 
+type NotificationSender struct {
+	ID       primitive.ObjectID `json:"id"`
+	FullName string             `json:"fullName"`
+	Building *string            `json:"building,omitempty"`
+}
+
 type Query struct {
 }
 
@@ -54,4 +60,7 @@ type SendNotificationInput struct {
 	Title   string                   `json:"title"`
 	Message string                   `json:"message"`
 	Type    *models.NotificationType `json:"type,omitempty"`
+}
+
+type Subscription struct {
 }

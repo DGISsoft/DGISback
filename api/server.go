@@ -78,16 +78,14 @@ func main() {
         }
     }()
 
-
     database := client.Database("dgis-db")
 
-
     mongoService := serv.New(database)
-
-
     userService := serv.NewUserService(mongoService)
     markerService := serv.NewMarkerService(mongoService)
     notificationService := serv.NewNotificationService(mongoService)
+
+
     createDefaultAdmin(userService)
 
 

@@ -1,3 +1,4 @@
+// services/notification_service.go
 package mongo
 
 import (
@@ -8,6 +9,7 @@ import (
 
 	"github.com/DGISsoft/DGISback/models"
 	"github.com/DGISsoft/DGISback/services/mongo/query"
+	"github.com/DGISsoft/DGISback/services/redis"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,10 +17,14 @@ import (
 
 type NotificationService struct {
 	*MongoService
+	RedisService *redis.RedisService
 }
 
-func NewNotificationService(mongoService *MongoService) *NotificationService {
-	return &NotificationService{MongoService: mongoService}
+func NewNotificationService(mongoService *MongoService, redisService *redis.RedisService) *NotificationService {
+	return &NotificationService{
+		MongoService: mongoService,
+		RedisService: redisService,
+	}
 }
 
 func (s *NotificationService) CreateNotification(ctx context.Context, notif *models.Notification) error {
@@ -77,22 +83,23 @@ func (s *NotificationService) CreateUserNotifications(ctx context.Context, notif
 		return fmt.Errorf("failed to create user notifications: %w", err)
 	}
 	
+	// Оповещаем всех получателей о новых уведомлениях
+	for _, userID := range filteredRecipients {
+		s.NotifyUserNotificationChanged(userID)
+	}
+	
 	log.Printf("NotificationService: Created %d user notifications for notification %s", len(docs), notificationID.Hex())
 	return nil
 }
 
-
 func (s *NotificationService) GetUserNotifications(ctx context.Context, userID primitive.ObjectID, statuses []models.NotificationStatus, limit, offset int) ([]*models.UserNotification, error) {
 	collection := s.GetCollection("user_notifications")
-	
 
 	filter := bson.M{"userId": userID}
-	
 
 	if len(statuses) > 0 {
 		filter["status"] = bson.M{"$in": statuses}
 	}
-
 
 	opts := options.Find()
 	opts.SetSort(bson.D{{Key: "createdAt", Value: -1}})
@@ -113,8 +120,26 @@ func (s *NotificationService) GetUserNotifications(ctx context.Context, userID p
 	return userNotifs, nil
 }
 
+// Добавляем вспомогательный метод для получения уведомления по ID
+func (s *NotificationService) GetUserNotificationByID(ctx context.Context, id primitive.ObjectID) (*models.UserNotification, error) {
+	collection := s.GetCollection("user_notifications")
+	var userNotif models.UserNotification
+
+	err := query.FindByID(ctx, collection, id, &userNotif)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user notification: %w", err)
+	}
+
+	return &userNotif, nil
+}
 
 func (s *NotificationService) MarkAsRead(ctx context.Context, userNotifID primitive.ObjectID) error {
+	// Получаем текущее состояние уведомления перед изменением
+	oldNotif, err := s.GetUserNotificationByID(ctx, userNotifID)
+	if err != nil {
+		return fmt.Errorf("failed to get user notification before marking as read: %w", err)
+	}
+	
 	collection := s.GetCollection("user_notifications")
 	now := time.Now()
 
@@ -136,11 +161,22 @@ func (s *NotificationService) MarkAsRead(ctx context.Context, userNotifID primit
 		return fmt.Errorf("user notification %s not found", userNotifID.Hex())
 	}
 	
+	// Оповещаем подписчиков только если статус действительно изменился
+	if oldNotif.Status != models.NotificationStatusRead {
+		s.NotifyUserNotificationChanged(oldNotif.UserID)
+	}
+	
 	log.Printf("NotificationService: Marked user notification %s as read", userNotifID.Hex())
 	return nil
 }
 
 func (s *NotificationService) DeleteUserNotification(ctx context.Context, userNotifID primitive.ObjectID) error {
+	// Получаем информацию об уведомлении перед удалением
+	userNotif, err := s.GetUserNotificationByID(ctx, userNotifID)
+	if err != nil {
+		return fmt.Errorf("failed to get user notification before deletion: %w", err)
+	}
+	
 	collection := s.GetCollection("user_notifications")
 
 	result, err := collection.DeleteOne(ctx, bson.M{"_id": userNotifID})
@@ -151,6 +187,9 @@ func (s *NotificationService) DeleteUserNotification(ctx context.Context, userNo
 	if result.DeletedCount == 0 {
 		return fmt.Errorf("user notification %s not found", userNotifID.Hex())
 	}
+	
+	// Оповещаем подписчиков об удалении
+	s.NotifyUserNotificationChanged(userNotif.UserID)
 	
 	log.Printf("NotificationService: Deleted user notification %s", userNotifID.Hex())
 	return nil
@@ -199,14 +238,13 @@ func (s *NotificationService) GetUnreadCount(ctx context.Context, userID primiti
 	return int(count), nil
 }
 
-func (s *NotificationService) GetUserNotificationByID(ctx context.Context, id primitive.ObjectID) (*models.UserNotification, error) {
-	collection := s.GetCollection("user_notifications")
-	var userNotif models.UserNotification
-
-	err := query.FindByID(ctx, collection, id, &userNotif)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user notification: %w", err)
+// Метод для оповещения подписчиков об изменении уведомлений
+func (s *NotificationService) NotifyUserNotificationChanged(userID primitive.ObjectID) {
+	// Публикуем сообщение в Redis канал
+	channel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex())
+	
+	// Отправляем сообщение через Redis
+	if err := s.RedisService.Publish(channel, "changed"); err != nil {
+		log.Printf("Failed to publish notification change for user %s: %v", userID.Hex(), err)
 	}
-
-	return &userNotif, nil
 }

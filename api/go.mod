@@ -11,13 +11,13 @@ require (
 )
 
 require (
+	github.com/DGISsoft/DGISback/env v0.0.0-20250817202043-eb2c32c38dfe
 	github.com/DGISsoft/DGISback/middleware v0.0.0-20250814153110-aac82708c6ce
 	github.com/DGISsoft/DGISback/models v0.0.0-20250817192649-ff1647db30cf
 	github.com/DGISsoft/DGISback/services v0.0.0-20250817192649-ff1647db30cf
 )
 
 require (
-	github.com/DGISsoft/DGISback/env v0.0.0-20250817202043-eb2c32c38dfe // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect

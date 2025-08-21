@@ -103,7 +103,7 @@ func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUse
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	if (user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor) &&
+	if (user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor || user.Role == models.UserRolePredsedatel) &&
 		user.Building != nil && *user.Building != "" {
 
 		if user.ID.IsZero() {
@@ -160,7 +160,7 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id primitive.ObjectID
 		return false, fmt.Errorf("failed to get requester info: %w", err)
 	}
 
-	if !requester.HasHigherRole(userToDelete.Role) {
+	if !requester.HasEqualOrHigherRole(userToDelete.Role) {
 		log.Printf("DeleteUser: User %s (role %s) attempted to delete user %s (role %s) - forbidden by role hierarchy",
 			requesterID.Hex(), requester.Role, id.Hex(), userToDelete.Role)
 		return false, fmt.Errorf("insufficient permissions to delete user with role %s", userToDelete.Role)
@@ -224,39 +224,6 @@ func (r *mutationResolver) RemoveUser(ctx context.Context, input model.RemoveUse
 	}
 
 	return updatedMarker, nil
-}
-
-// DeleteNotification is the resolver for the deleteNotification field.
-func (r *mutationResolver) DeleteNotification(ctx context.Context, id primitive.ObjectID) (bool, error) {
-	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
-	if !isAuthenticated {
-		return false, fmt.Errorf("unauthorized")
-	}
-
-	userNotif, err := r.NotificationService.GetUserNotificationByID(ctx, id)
-	if err != nil {
-		log.Printf("DeleteNotification: Failed to get user notification %s: %v", id.Hex(), err)
-		return false, fmt.Errorf("notification not found")
-	}
-
-	requesterID, err := primitive.ObjectIDFromHex(userClaims.UserID)
-	if err != nil {
-		return false, fmt.Errorf("invalid user ID in token")
-	}
-
-	if userNotif.UserID != requesterID {
-		log.Printf("DeleteNotification: User %s attempted to delete notification %s (owned by %s)",
-			requesterID.Hex(), id.Hex(), userNotif.UserID.Hex())
-		return false, fmt.Errorf("access denied: you can only delete your own notifications")
-	}
-
-	err = r.NotificationService.DeleteUserNotification(ctx, id)
-	if err != nil {
-		log.Printf("DeleteNotification: Failed to delete %s: %v", id.Hex(), err)
-		return false, fmt.Errorf("could not delete notification")
-	}
-
-	return true, nil
 }
 
 // SendNotification is the resolver for the sendNotification field.
@@ -343,13 +310,20 @@ func (r *mutationResolver) MarkNotificationAsRead(ctx context.Context, id primit
 }
 
 // Sender is the resolver for the sender field.
-func (r *notificationResolver) Sender(ctx context.Context, obj *models.Notification) (*models.User, error) {
-	sender, err := r.UserService.GetUserByID(ctx, obj.SenderID)
+func (r *notificationResolver) Sender(ctx context.Context, obj *models.Notification) (*model.NotificationSender, error) {
+	// Получаем отправителя по ID из уведомления
+	user, err := r.UserService.GetUserByID(ctx, obj.SenderID)
 	if err != nil {
-		log.Printf("notificationResolver.Sender: Failed to get sender user %s for notification %s: %v", obj.SenderID.Hex(), obj.ID.Hex(), err)
-		return nil, fmt.Errorf("failed to load sender for notification: %w", err)
+		return nil, fmt.Errorf("failed to get sender user: %w", err)
 	}
-	sender.Password = ""
+
+	// Создаем NotificationSender из данных пользователя
+	sender := &model.NotificationSender{
+		ID:       user.ID,
+		FullName: user.FullName,
+		Building: user.Building,
+	}
+
 	return sender, nil
 }
 
@@ -516,6 +490,11 @@ func (r *queryResolver) UnreadNotificationsCount(ctx context.Context) (int, erro
 	return count, nil
 }
 
+// UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
+func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Context, userID primitive.ObjectID) (<-chan int, error) {
+	panic(fmt.Errorf("not implemented: UnreadNotificationsCountChanged - unreadNotificationsCountChanged"))
+}
+
 // Markers is the resolver for the markers field.
 func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error) {
 	if len(obj.Markers) == 0 {
@@ -537,17 +516,6 @@ func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models
 	return markers, nil
 }
 
-// User is the resolver for the user field.
-func (r *userNotificationResolver) User(ctx context.Context, obj *models.UserNotification) (*models.User, error) {
-	user, err := r.UserService.GetUserByID(ctx, obj.UserID)
-	if err != nil {
-		log.Printf("userNotificationResolver.User: Failed to get user %s: %v", obj.UserID.Hex(), err)
-		return nil, fmt.Errorf("failed to load user for notification: %w", err)
-	}
-	user.Password = ""
-	return user, nil
-}
-
 // Notification is the resolver for the notification field.
 func (r *userNotificationResolver) Notification(ctx context.Context, obj *models.UserNotification) (*models.Notification, error) {
 	notification, err := r.NotificationService.GetNotificationByID(ctx, obj.NotificationID)
@@ -567,6 +535,9 @@ func (r *Resolver) Notification() NotificationResolver { return &notificationRes
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 // User returns UserResolver implementation.
 func (r *Resolver) User() UserResolver { return &userResolver{r} }
 
@@ -576,5 +547,6 @@ func (r *Resolver) UserNotification() UserNotificationResolver { return &userNot
 type mutationResolver struct{ *Resolver }
 type notificationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
 type userNotificationResolver struct{ *Resolver }

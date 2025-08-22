@@ -55,7 +55,7 @@ func SignalSetAuthCookieDirect(w http.ResponseWriter, tokenString string) {
 		Value:    tokenString,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		MaxAge:   int(tokenDuration.Seconds()),
 	})

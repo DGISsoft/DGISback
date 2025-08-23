@@ -145,7 +145,7 @@ func main() {
 					log.Println("[WS] Allowing request with empty Origin")
 					return true
 				}
-				allowedOrigins := []string{"http://localhost:5173"}
+				allowedOrigins := []string{"http://localhost:5173","file://"}
 				for _, allowed := range allowedOrigins {
 					if origin == allowed {
 						log.Printf("[WS] Allowing request from Origin: %s", origin)

@@ -85,7 +85,7 @@ func TestRedis(t *testing.T) {
 
 func TestS3UploadAndDeleteFile(t *testing.T) {
 	s3cfg := &s3.S3ClientConfig{
-		Bucket:    "viget-1",
+		Bucket:    "json-usa-vacancies",
 		Endpoint:  env.GetEnv("AWS_ENDPOINT", ""),
 		Region:    env.GetEnv("AWS_REGION", ""),
 		AccessKey: env.GetEnv("AWS_ACCESS_KEY_ID", ""),

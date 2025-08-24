@@ -243,7 +243,6 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 
 	recipientIDs := input.UserIds
 
-	// 1. Создать шаблон уведомления
 	notifType := models.NotificationTypeGeneral
 	if input.Type != nil {
 		notifType = models.NotificationType(*input.Type)
@@ -318,9 +317,8 @@ func (r *mutationResolver) MarkNotificationAsRead(ctx context.Context, id primit
 		log.Printf("MarkNotificationAsRead: Failed to publish to Redis channel %s: %v", redisChannel, err)
 
 	} else {
-		log.Printf("MarkNotificationAsRead: Successfully published to Redis channel: %s", redisChannel) // Добавлен лог
+		log.Printf("MarkNotificationAsRead: Successfully published to Redis channel: %s", redisChannel)
 	}
-	// ================================================
 
 	return true, nil
 }
@@ -332,25 +330,22 @@ func (r *mutationResolver) CreateWeeklyReport(ctx context.Context, input model.C
 		return nil, fmt.Errorf("unauthorized")
 	}
 
-	// Получаем ID пользователя из токена
 	userID, err := primitive.ObjectIDFromHex(userClaims.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid user ID in token")
 	}
 
-	// Создаем отчет
 	report := &models.WeeklyReport{
 		Applications:          input.Applications,
 		Inspection:            input.Inspection,
 		Additional:            input.Additional,
 		UserID:                userID,
-		Status:                models.StatusNotReviewed, // По умолчанию не рассмотрен
+		Status:                models.StatusNotReviewed,
 		ApplicationsImageKeys: []string{},
 		InspectionImageKeys:   []string{},
 		AdditionalImageKeys:   []string{},
 	}
 
-	// Если это отчет от председателя, то сразу ставим статус "рассмотрен"
 	user, err := r.UserService.GetUserByID(ctx, userID)
 	if err == nil && user.Role == models.UserRolePredsedatel {
 		report.Status = models.StatusReviewed
@@ -372,16 +367,13 @@ func (r *mutationResolver) UploadReportImage(ctx context.Context, input model.Up
 		return nil, fmt.Errorf("unauthorized")
 	}
 
-	// input.File это ваш кастомный graphql.Upload
 	fileUpload := input.File
 
-	// Проверяем, что файл не пустой
 	if fileUpload.File == nil {
 		log.Printf("UploadReportImage: Received empty file upload")
 		return nil, fmt.Errorf("uploaded file is empty")
 	}
 
-	// Получаем метаданные из fileUpload
 	filename := fileUpload.Filename
 	contentType := fileUpload.ContentType
 	size := fileUpload.Size
@@ -389,19 +381,16 @@ func (r *mutationResolver) UploadReportImage(ctx context.Context, input model.Up
 	log.Printf("UploadReportImage: Received file: Name=%s, Size=%d bytes, ContentType=%s",
 		filename, size, contentType)
 
-	// Читаем содержимое файла
 	fileContent, err := io.ReadAll(fileUpload.File)
 	if err != nil {
 		log.Printf("UploadReportImage: Failed to read uploaded file content: %v", err)
 		return nil, fmt.Errorf("failed to read file content: %w", err)
 	}
 
-
 	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 
 	uniqueFilename := fmt.Sprintf("%s_%d_%s", userClaims.UserID, time.Now().UnixNano(), filename)
 
-	// Загружаем в S3, передавая bucket
 	imageKey, err := r.ReportService.UploadImage(ctx, bucket, fileContent, uniqueFilename, contentType)
 	if err != nil {
 		log.Printf("UploadReportImage: Failed to upload image for user %s: %v", userClaims.UserID, err)
@@ -424,7 +413,6 @@ func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.Ad
 		return nil, fmt.Errorf("unauthorized")
 	}
 
-	// Проверяем права доступа
 	report, err := r.ReportService.GetWeeklyReportByID(ctx, input.ReportID)
 	if err != nil {
 		return nil, fmt.Errorf("report not found")
@@ -435,7 +423,6 @@ func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.Ad
 		return nil, fmt.Errorf("invalid user ID in token")
 	}
 
-	// Если отчет не принадлежит пользователю, проверяем права
 	if report.UserID != userID {
 		user, err := r.UserService.GetUserByID(ctx, userID)
 		if err != nil || (user.Role != models.UserRoleSupervisor && user.Role != models.UserRoleDgis && user.Role != models.UserRolePredsedatel) {
@@ -443,7 +430,6 @@ func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.Ad
 		}
 	}
 
-	// Подготавливаем списки ключей
 	appKeys := []string{}
 	if input.ApplicationsImageKeys != nil {
 		appKeys = input.ApplicationsImageKeys
@@ -459,14 +445,12 @@ func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.Ad
 		addKeys = input.AdditionalImageKeys
 	}
 
-	// Добавляем ключи изображений к отчету
 	err = r.ReportService.AddImageKeysToReport(ctx, input.ReportID, appKeys, inspKeys, addKeys)
 	if err != nil {
 		log.Printf("AddImagesToReport: Failed to add images to report %s: %v", input.ReportID.Hex(), err)
 		return nil, fmt.Errorf("failed to add images to report: %w", err)
 	}
 
-	// Получаем обновленный отчет
 	updatedReport, err := r.ReportService.GetWeeklyReportByID(ctx, input.ReportID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updated report: %w", err)
@@ -477,13 +461,11 @@ func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.Ad
 
 // Sender is the resolver for the sender field.
 func (r *notificationResolver) Sender(ctx context.Context, obj *models.Notification) (*model.NotificationSender, error) {
-	// Получаем отправителя по ID из уведомления
 	user, err := r.UserService.GetUserByID(ctx, obj.SenderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sender user: %w", err)
 	}
 
-	// Создаем NotificationSender из данных пользователя
 	sender := &model.NotificationSender{
 		ID:       user.ID,
 		FullName: user.FullName,
@@ -667,6 +649,74 @@ func (r *queryResolver) GetWeeklyReport(ctx context.Context, id primitive.Object
 	return report, nil
 }
 
+// GetWeeklyReports is the resolver for the getWeeklyReports field.
+func (r *queryResolver) GetWeeklyReports(ctx context.Context) ([]*models.WeeklyReport, error) {
+	// 1. Authenticate and identify the requester
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return nil, fmt.Errorf("unauthorized: valid authentication required")
+	}
+
+	requesterObjectID, err := primitive.ObjectIDFromHex(userClaims.UserID)
+	if err != nil {
+		log.Printf("GetWeeklyReports: Invalid ObjectID format in token for UserID: %s", userClaims.UserID)
+		return nil, fmt.Errorf("invalid authentication data")
+	}
+
+	requester, err := r.UserService.GetUserByID(ctx, requesterObjectID)
+	if err != nil {
+		log.Printf("GetWeeklyReports: Failed to get requester data for ID %s: %v", userClaims.UserID, err)
+		return nil, fmt.Errorf("could not retrieve requester information")
+	}
+
+	// 2. Define filter based on requester's role
+	var filter bson.M
+
+	// If the requester is a Predsedatel, they can see all reports
+	if requester.Role == models.UserRolePredsedatel {
+		// No specific filter needed, get all reports
+		filter = bson.M{}
+		log.Printf("GetWeeklyReports: Predsedatel %s requesting all reports", requester.ID.Hex())
+	} else if requester.Role == models.UserRoleDgis || requester.Role == models.UserRoleSupervisor {
+		// For DGIS and Supervisors, exclude reports FROM Predsedatels
+		// First, find all Predsedatel users to exclude their reports
+		predsedatelFilter := bson.M{"role": models.UserRolePredsedatel}
+		predsedateli, err := r.UserService.FindUsers(ctx, predsedatelFilter)
+		if err != nil {
+			log.Printf("GetWeeklyReports: Failed to find Predsedateli for filtering: %v", err)
+			excludeUserIDs := make([]primitive.ObjectID, 0, len(predsedateli))
+			for _, p := range predsedateli {
+				excludeUserIDs = append(excludeUserIDs, p.ID)
+			}
+			
+			if len(excludeUserIDs) > 0 {
+				filter = bson.M{"userID": bson.M{"$nin": excludeUserIDs}}
+			} else {
+				filter = bson.M{}
+			}
+			log.Printf("GetWeeklyReports: Non-Predsedatel %s (%s) requesting reports, excluding %d Predsedatel user IDs", requester.Login, requester.Role, len(excludeUserIDs))
+		} else {
+			log.Printf("GetWeeklyReports: Could not fetch Predsedateli for filtering, returning all reports. Error: %v", err)
+			filter = bson.M{}
+		}
+	} else {
+		log.Printf("GetWeeklyReports: User %s (%s) attempted to access, denying access", requester.Login, requester.Role)
+		return []*models.WeeklyReport{}, nil
+	}
+
+	var reports []*models.WeeklyReport
+	
+	err = query.FindMany(ctx, r.ReportService.GetCollection(), filter, &reports)
+	if err != nil {
+		log.Printf("GetWeeklyReports: Failed to retrieve reports with filter %+v: %v", filter, err)
+		return nil, fmt.Errorf("could not load weekly reports: %w", err)
+	}
+
+	log.Printf("GetWeeklyReports: Successfully retrieved %d reports for user %s (%s)", len(reports), requester.Login, requester.Role)
+	return reports, nil
+}
+
+
 // GetUserWeeklyReports is the resolver for the getUserWeeklyReports field.
 func (r *queryResolver) GetUserWeeklyReports(ctx context.Context, userID primitive.ObjectID, limit *int, offset *int) ([]*models.WeeklyReport, error) {
 	limitVal := int64(20)
@@ -690,18 +740,14 @@ func (r *queryResolver) GetUserWeeklyReports(ctx context.Context, userID primiti
 
 // GetReportImage is the resolver for the getReportImage field.
 func (r *queryResolver) GetReportImage(ctx context.Context, key string) (*model.ImageData, error) {
-	// === ИЗМЕНЕНИЕ: Получаем bucket из конфигурации S3 ===
-	// Аналогично, как и в UploadReportImage
 	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 
-	// Получаем изображение из S3, передавая bucket
 	content, err := r.ReportService.GetImage(ctx, bucket, key)
 	if err != nil {
 		log.Printf("GetReportImage: Failed to get image %s: %v", key, err)
 		return nil, fmt.Errorf("failed to get image: %w", err)
 	}
 
-	// Кодируем в base64 для передачи клиенту
 	encoded := base64.StdEncoding.EncodeToString(content)
 
 	return &model.ImageData{
@@ -713,7 +759,6 @@ func (r *queryResolver) GetReportImage(ctx context.Context, key string) (*model.
 
 // UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
 func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Context) (<-chan int, error) {
-	// 1. Извлекаем информацию о пользователе из контекста
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
 		log.Println("UnreadNotificationsCountChanged: User NOT authenticated")
@@ -721,31 +766,24 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 	}
 	log.Printf("UnreadNotificationsCountChanged: User authenticated, ID: %s", userClaims.UserID)
 
-	// 2. Получаем ID пользователя из токена
 	userID, err := primitive.ObjectIDFromHex(userClaims.UserID)
 	if err != nil {
-		// Лучше логировать ошибку
 		log.Printf("UnreadNotificationsCountChanged: Invalid user ID format: %s, error: %v", userClaims.UserID, err)
 		return nil, fmt.Errorf("invalid user ID in authentication token")
 	}
 
-	// 3. Создаем канал для отправки обновлений клиенту
 	notificationsChannel := make(chan int, 1)
 
-	// 4. Формируем уникальный ключ канала Redis Pub/Sub для этого пользователя
-	// ВАЖНО: Имя канала ДОЛЖНО быть в точности таким же, как в MarkNotificationAsRead
 	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex())
 	log.Printf("UnreadNotificationsCountChanged: User %s subscribing to Redis channel: %s", userID.Hex(), redisChannel)
 
 	pubsub := r.RedisService.Subscribe(ctx, redisChannel)
 
-	// 6. Запускаем горутину для обработки подписки на Redis
 	go func() {
-		// defer для корректного закрытия ресурсов
 		defer close(notificationsChannel)
 		defer func() {
 			if pubsub != nil {
-				err := pubsub.Close() // Закрываем подписку на Redis
+				err := pubsub.Close()
 				if err != nil {
 					log.Printf("UnreadNotificationsCountChanged: Error closing Redis subscription for user %s on channel %s: %v", userID.Hex(), redisChannel, err)
 				} else {
@@ -754,11 +792,10 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 			}
 		}()
 
-		// 7. Отправляем начальное значение
 		initialCount, err := r.NotificationService.GetUnreadCount(ctx, userID)
 		if err != nil {
 			log.Printf("UnreadNotificationsCountChanged: Failed to get initial unread count for user %s: %v", userID.Hex(), err)
-			initialCount = 0 // Отправляем 0 в случае ошибки
+			initialCount = 0
 		}
 
 		log.Printf("UnreadNotificationsCountChanged: Sending initial unread count %d to user %s", initialCount, userID.Hex())
@@ -771,43 +808,33 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 			return
 		}
 
-		// 8. Цикл обработки сообщений из Redis
-		// Получаем канал сообщений из pubsub
-		// Убедитесь, что pubsub.Channel() возвращает канал, совместимый с *redis.Message
 		redisMsgChannel := pubsub.Channel()
 		log.Printf("UnreadNotificationsCountChanged: Listening for messages on Redis channel for user %s", userID.Hex())
 		for {
 			select {
-			case <-ctx.Done(): // Клиент отключился
+			case <-ctx.Done():
 				log.Printf("UnreadNotificationsCountChanged: Context cancelled, unsubscribing user %s from Redis channel %s", userID.Hex(), redisChannel)
 				return
-			case msg, ok := <-redisMsgChannel: // Получаем сообщение из канала Redis
+			case msg, ok := <-redisMsgChannel:
 				if !ok {
-					// Канал Redis был закрыт
 					log.Printf("UnreadNotificationsCountChanged: Redis message channel closed for user %s", userID.Hex())
 					return
 				}
-				// Проверяем, что msg не nil (на всякий случай)
 				if msg != nil {
-					// Логируем получение сообщения. Это ключевой момент.
-					// Если вы НЕ ВИДИТЕ эту строку в логах после публикации в Redis,
-					// значит, подписка на Redis не работает.
 					log.Printf("UnreadNotificationsCountChanged: Received message on Redis channel for user %s: Channel=%s, Payload=%s", userID.Hex(), msg.Channel, msg.Payload)
 
-					// 9. Получаем актуальное количество
 					currentCount, err := r.NotificationService.GetUnreadCount(ctx, userID)
 					if err != nil {
 						log.Printf("UnreadNotificationsCountChanged: Failed to get unread count for user %s after Redis message: %v", userID.Hex(), err)
-						continue // Продолжаем цикл, надеясь на следующее сообщение
+						continue
 					}
 
 					log.Printf("UnreadNotificationsCountChanged: Sending updated unread count %d to user %s", currentCount, userID.Hex())
 
-					// 10. Отправляем обновленное количество клиенту
 					select {
 					case notificationsChannel <- currentCount:
 						log.Printf("UnreadNotificationsCountChanged: Sent updated unread count %d to user %s", currentCount, userID.Hex())
-					case <-ctx.Done(): // Клиент отключился во время отправки
+					case <-ctx.Done():
 						log.Printf("UnreadNotificationsCountChanged: Client disconnected while sending update to user %s", userID.Hex())
 						return
 					}
@@ -818,7 +845,6 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 		}
 	}()
 
-	// 11. Возвращаем канал
 	return notificationsChannel, nil
 }
 

@@ -173,6 +173,7 @@ type Query {
   unreadNotificationsCount: Int!
 
   getWeeklyReport(id: ID!): WeeklyReport!
+  getWeeklyReports: [WeeklyReport!]!
   getUserWeeklyReports(userID: ID!, limit: Int, offset: Int): [WeeklyReport!]!
   getReportImage(key: String!): ImageData!
 }

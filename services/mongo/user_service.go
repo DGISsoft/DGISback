@@ -138,3 +138,16 @@ func (s *UserService) ChangePassword(ctx context.Context, id primitive.ObjectID,
 
     return s.UpdateUser(ctx, id, bson.M{"password": string(hashedPassword)})
 }
+
+func (s *UserService) FindUsers(ctx context.Context, filter bson.M) ([]*models.User, error) {
+	collection := s.GetCollection("users")
+
+	var users []*models.User
+
+	err := query.FindMany(ctx, collection, filter, &users)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find users: %w", err)
+	}
+
+	return users, nil
+}

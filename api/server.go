@@ -119,10 +119,10 @@ func main() {
 
 	s3cfg := &s3.S3ClientConfig{
 		Bucket:    env.GetEnv("S3_BUCKET", "your-default-bucket"),
-		Endpoint:  env.GetEnv("S3_ENDPOINT", ""),
-		Region:    env.GetEnv("S3_REGION", ""),
-		AccessKey: env.GetEnv("S3_ACCESS_KEY", ""),
-		SecretKey: env.GetEnv("S3_SECRET_KEY", ""),
+		Endpoint:  env.GetEnv("AWS_ENDPOINT", ""),
+		Region:    env.GetEnv("AWS_REGION", ""),
+		AccessKey: env.GetEnv("AWS_ACCESS_KEY_ID", ""),
+		SecretKey: env.GetEnv("AWS_SECRET_ACCESS_KEY", ""),
 	}
 
 
@@ -134,7 +134,6 @@ func main() {
 		s3cfg.SecretKey,
 	)
 	
-	// Проверяем, что сервис инициализировался успешно
 	if s3.Service == nil {
 		log.Fatal("Failed to initialize S3 service")
 	}

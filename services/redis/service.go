@@ -9,10 +9,7 @@ import (
 )
 
 var (
-	// Service - глобальный экземпляр RedisService
 	Service *RedisService
-	// Глобальный контекст больше не используется напрямую в Publish/Subscribe
-	// ctx = context.Background() - УДАЛЕН
 )
 
 // RedisService предоставляет методы для работы с Redis через RedisClient

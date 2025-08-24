@@ -111,6 +111,7 @@ func main() {
 	userService := serv.NewUserService(mongoService)
 	markerService := serv.NewMarkerService(mongoService)
 	notificationService := serv.NewNotificationService(mongoService, redis.Service)
+	reportService := serv.NewReportService(mongoService)
 
 	createDefaultAdmin(userService)
 
@@ -119,6 +120,7 @@ func main() {
 		MarkerService:        markerService,
 		NotificationService:  notificationService,
 		RedisService:         redis.Service,
+		ReportService: reportService,
 	}
 	port := os.Getenv("PORT")
 	if port == "" {

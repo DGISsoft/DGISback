@@ -1,4 +1,5 @@
 scalar Time
+scalar Upload
 
 enum UserRole {
   PREDSEDATEL
@@ -17,6 +18,60 @@ enum NotificationType {
 enum NotificationStatus {
   UNREAD
   READ
+}
+
+enum ReportStatus {
+  reviewed
+  not_reviewed
+}
+
+enum Rating {
+  good
+  bad
+}
+
+type WeeklyReport {
+  id: ID!
+  createdAt: Time!
+  updatedAt: Time!
+  applications: String!
+  inspection: String!
+  additional: String!
+  status: ReportStatus!
+  supervisorRate: Rating
+  predsedatelRate: Rating
+  applicationsImageKeys: [String!]!
+  inspectionImageKeys: [String!]!
+  additionalImageKeys: [String!]!
+  userID: ID!
+}
+
+type ImageUploadResult {
+  key: String!
+  name: String!
+}
+
+type ImageData {
+  key: String!
+  data: String!
+  size: Int!
+}
+
+input CreateWeeklyReportInput {
+  applications: String!
+  inspection: String!
+  additional: String!
+}
+
+input UploadReportImageInput {
+  file: Upload!
+}
+
+input AddImagesToReportInput {
+  reportID: ID!
+  applicationsImageKeys: [String!]
+  inspectionImageKeys: [String!]
+  additionalImageKeys: [String!]
 }
 
 type User {
@@ -116,6 +171,10 @@ type Query {
     offset: Int
   ): [UserNotification!]!
   unreadNotificationsCount: Int!
+
+  getWeeklyReport(id: ID!): WeeklyReport!
+  getUserWeeklyReports(userID: ID!, limit: Int, offset: Int): [WeeklyReport!]!
+  getReportImage(key: String!): ImageData!
 }
 
 type Mutation {
@@ -127,6 +186,10 @@ type Mutation {
   removeUser(input: RemoveUserInput!): Marker!
   sendNotification(input: SendNotificationInput!): Boolean!
   markNotificationAsRead(id: ID!): Boolean!
+
+  createWeeklyReport(input: CreateWeeklyReportInput!): WeeklyReport!
+  uploadReportImage(input: UploadReportImageInput!): ImageUploadResult!
+  addImagesToReport(input: AddImagesToReportInput!): WeeklyReport!
 }
 
 type Subscription {

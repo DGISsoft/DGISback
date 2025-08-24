@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/DGISsoft/DGISback/env v0.0.0-20250817203408-c9c1fa8b31bb
-	github.com/DGISsoft/DGISback/models v0.0.0-20250817174658-30f47828595a
+	github.com/DGISsoft/DGISback/models v0.0.0-20250824045235-6daf94304e34
 	github.com/aws/aws-sdk-go-v2 v1.38.1
 	github.com/aws/aws-sdk-go-v2/config v1.31.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.6

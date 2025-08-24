@@ -3,9 +3,17 @@
 package model
 
 import (
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/DGISsoft/DGISback/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+type AddImagesToReportInput struct {
+	ReportID              primitive.ObjectID `json:"reportID"`
+	ApplicationsImageKeys []string           `json:"applicationsImageKeys,omitempty"`
+	InspectionImageKeys   []string           `json:"inspectionImageKeys,omitempty"`
+	AdditionalImageKeys   []string           `json:"additionalImageKeys,omitempty"`
+}
 
 type AssignUserInput struct {
 	UserID   primitive.ObjectID `json:"userId"`
@@ -31,6 +39,23 @@ type CreateUserInput struct {
 	Building    *string         `json:"building,omitempty"`
 	PhoneNumber string          `json:"phoneNumber"`
 	TelegramTag string          `json:"telegramTag"`
+}
+
+type CreateWeeklyReportInput struct {
+	Applications string `json:"applications"`
+	Inspection   string `json:"inspection"`
+	Additional   string `json:"additional"`
+}
+
+type ImageData struct {
+	Key  string `json:"key"`
+	Data string `json:"data"`
+	Size int    `json:"size"`
+}
+
+type ImageUploadResult struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
 }
 
 type LoginInput struct {
@@ -63,4 +88,8 @@ type SendNotificationInput struct {
 }
 
 type Subscription struct {
+}
+
+type UploadReportImageInput struct {
+	File graphql.Upload `json:"file"`
 }

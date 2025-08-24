@@ -60,6 +60,17 @@ type ComplexityRoot struct {
 		User  func(childComplexity int) int
 	}
 
+	ImageData struct {
+		Data func(childComplexity int) int
+		Key  func(childComplexity int) int
+		Size func(childComplexity int) int
+	}
+
+	ImageUploadResult struct {
+		Key  func(childComplexity int) int
+		Name func(childComplexity int) int
+	}
+
 	Marker struct {
 		ID       func(childComplexity int) int
 		Label    func(childComplexity int) int
@@ -69,14 +80,17 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
+		AddImagesToReport      func(childComplexity int, input model.AddImagesToReportInput) int
 		AssignUser             func(childComplexity int, input model.AssignUserInput) int
 		CreateUser             func(childComplexity int, input model.CreateUserInput) int
+		CreateWeeklyReport     func(childComplexity int, input model.CreateWeeklyReportInput) int
 		DeleteUser             func(childComplexity int, id primitive.ObjectID) int
 		Login                  func(childComplexity int, input model.LoginInput) int
 		Logout                 func(childComplexity int) int
 		MarkNotificationAsRead func(childComplexity int, id primitive.ObjectID) int
 		RemoveUser             func(childComplexity int, input model.RemoveUserInput) int
 		SendNotification       func(childComplexity int, input model.SendNotificationInput) int
+		UploadReportImage      func(childComplexity int, input model.UploadReportImageInput) int
 	}
 
 	Notification struct {
@@ -96,6 +110,9 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Dashboard                func(childComplexity int) int
+		GetReportImage           func(childComplexity int, key string) int
+		GetUserWeeklyReports     func(childComplexity int, userID primitive.ObjectID, limit *int, offset *int) int
+		GetWeeklyReport          func(childComplexity int, id primitive.ObjectID) int
 		Me                       func(childComplexity int) int
 		MyNotifications          func(childComplexity int, statuses []models.NotificationStatus, limit *int, offset *int) int
 		UnreadNotificationsCount func(childComplexity int) int
@@ -126,6 +143,22 @@ type ComplexityRoot struct {
 		ReadAt       func(childComplexity int) int
 		Status       func(childComplexity int) int
 	}
+
+	WeeklyReport struct {
+		Additional            func(childComplexity int) int
+		AdditionalImageKeys   func(childComplexity int) int
+		Applications          func(childComplexity int) int
+		ApplicationsImageKeys func(childComplexity int) int
+		CreatedAt             func(childComplexity int) int
+		ID                    func(childComplexity int) int
+		Inspection            func(childComplexity int) int
+		InspectionImageKeys   func(childComplexity int) int
+		PredsedatelRate       func(childComplexity int) int
+		Status                func(childComplexity int) int
+		SupervisorRate        func(childComplexity int) int
+		UpdatedAt             func(childComplexity int) int
+		UserID                func(childComplexity int) int
+	}
 }
 
 type MutationResolver interface {
@@ -137,6 +170,9 @@ type MutationResolver interface {
 	RemoveUser(ctx context.Context, input model.RemoveUserInput) (*models.Marker, error)
 	SendNotification(ctx context.Context, input model.SendNotificationInput) (bool, error)
 	MarkNotificationAsRead(ctx context.Context, id primitive.ObjectID) (bool, error)
+	CreateWeeklyReport(ctx context.Context, input model.CreateWeeklyReportInput) (*models.WeeklyReport, error)
+	UploadReportImage(ctx context.Context, input model.UploadReportImageInput) (*model.ImageUploadResult, error)
+	AddImagesToReport(ctx context.Context, input model.AddImagesToReportInput) (*models.WeeklyReport, error)
 }
 type NotificationResolver interface {
 	Sender(ctx context.Context, obj *models.Notification) (*model.NotificationSender, error)
@@ -147,6 +183,9 @@ type QueryResolver interface {
 	Dashboard(ctx context.Context) ([]*models.Marker, error)
 	MyNotifications(ctx context.Context, statuses []models.NotificationStatus, limit *int, offset *int) ([]*models.UserNotification, error)
 	UnreadNotificationsCount(ctx context.Context) (int, error)
+	GetWeeklyReport(ctx context.Context, id primitive.ObjectID) (*models.WeeklyReport, error)
+	GetUserWeeklyReports(ctx context.Context, userID primitive.ObjectID, limit *int, offset *int) ([]*models.WeeklyReport, error)
+	GetReportImage(ctx context.Context, key string) (*model.ImageData, error)
 }
 type SubscriptionResolver interface {
 	UnreadNotificationsCountChanged(ctx context.Context) (<-chan int, error)
@@ -191,6 +230,41 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.AuthPayload.User(childComplexity), true
 
+	case "ImageData.data":
+		if e.complexity.ImageData.Data == nil {
+			break
+		}
+
+		return e.complexity.ImageData.Data(childComplexity), true
+
+	case "ImageData.key":
+		if e.complexity.ImageData.Key == nil {
+			break
+		}
+
+		return e.complexity.ImageData.Key(childComplexity), true
+
+	case "ImageData.size":
+		if e.complexity.ImageData.Size == nil {
+			break
+		}
+
+		return e.complexity.ImageData.Size(childComplexity), true
+
+	case "ImageUploadResult.key":
+		if e.complexity.ImageUploadResult.Key == nil {
+			break
+		}
+
+		return e.complexity.ImageUploadResult.Key(childComplexity), true
+
+	case "ImageUploadResult.name":
+		if e.complexity.ImageUploadResult.Name == nil {
+			break
+		}
+
+		return e.complexity.ImageUploadResult.Name(childComplexity), true
+
 	case "Marker.id":
 		if e.complexity.Marker.ID == nil {
 			break
@@ -226,6 +300,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Marker.Users(childComplexity), true
 
+	case "Mutation.addImagesToReport":
+		if e.complexity.Mutation.AddImagesToReport == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_addImagesToReport_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.AddImagesToReport(childComplexity, args["input"].(model.AddImagesToReportInput)), true
+
 	case "Mutation.assignUser":
 		if e.complexity.Mutation.AssignUser == nil {
 			break
@@ -249,6 +335,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateUser(childComplexity, args["input"].(model.CreateUserInput)), true
+
+	case "Mutation.createWeeklyReport":
+		if e.complexity.Mutation.CreateWeeklyReport == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createWeeklyReport_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateWeeklyReport(childComplexity, args["input"].(model.CreateWeeklyReportInput)), true
 
 	case "Mutation.deleteUser":
 		if e.complexity.Mutation.DeleteUser == nil {
@@ -316,6 +414,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.SendNotification(childComplexity, args["input"].(model.SendNotificationInput)), true
+
+	case "Mutation.uploadReportImage":
+		if e.complexity.Mutation.UploadReportImage == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_uploadReportImage_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UploadReportImage(childComplexity, args["input"].(model.UploadReportImageInput)), true
 
 	case "Notification.createdAt":
 		if e.complexity.Notification.CreatedAt == nil {
@@ -386,6 +496,42 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Dashboard(childComplexity), true
+
+	case "Query.getReportImage":
+		if e.complexity.Query.GetReportImage == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getReportImage_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetReportImage(childComplexity, args["key"].(string)), true
+
+	case "Query.getUserWeeklyReports":
+		if e.complexity.Query.GetUserWeeklyReports == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getUserWeeklyReports_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetUserWeeklyReports(childComplexity, args["userID"].(primitive.ObjectID), args["limit"].(*int), args["offset"].(*int)), true
+
+	case "Query.getWeeklyReport":
+		if e.complexity.Query.GetWeeklyReport == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getWeeklyReport_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetWeeklyReport(childComplexity, args["id"].(primitive.ObjectID)), true
 
 	case "Query.me":
 		if e.complexity.Query.Me == nil {
@@ -532,6 +678,97 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.UserNotification.Status(childComplexity), true
 
+	case "WeeklyReport.additional":
+		if e.complexity.WeeklyReport.Additional == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.Additional(childComplexity), true
+
+	case "WeeklyReport.additionalImageKeys":
+		if e.complexity.WeeklyReport.AdditionalImageKeys == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.AdditionalImageKeys(childComplexity), true
+
+	case "WeeklyReport.applications":
+		if e.complexity.WeeklyReport.Applications == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.Applications(childComplexity), true
+
+	case "WeeklyReport.applicationsImageKeys":
+		if e.complexity.WeeklyReport.ApplicationsImageKeys == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.ApplicationsImageKeys(childComplexity), true
+
+	case "WeeklyReport.createdAt":
+		if e.complexity.WeeklyReport.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.CreatedAt(childComplexity), true
+
+	case "WeeklyReport.id":
+		if e.complexity.WeeklyReport.ID == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.ID(childComplexity), true
+
+	case "WeeklyReport.inspection":
+		if e.complexity.WeeklyReport.Inspection == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.Inspection(childComplexity), true
+
+	case "WeeklyReport.inspectionImageKeys":
+		if e.complexity.WeeklyReport.InspectionImageKeys == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.InspectionImageKeys(childComplexity), true
+
+	case "WeeklyReport.predsedatelRate":
+		if e.complexity.WeeklyReport.PredsedatelRate == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.PredsedatelRate(childComplexity), true
+
+	case "WeeklyReport.status":
+		if e.complexity.WeeklyReport.Status == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.Status(childComplexity), true
+
+	case "WeeklyReport.supervisorRate":
+		if e.complexity.WeeklyReport.SupervisorRate == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.SupervisorRate(childComplexity), true
+
+	case "WeeklyReport.updatedAt":
+		if e.complexity.WeeklyReport.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.UpdatedAt(childComplexity), true
+
+	case "WeeklyReport.userID":
+		if e.complexity.WeeklyReport.UserID == nil {
+			break
+		}
+
+		return e.complexity.WeeklyReport.UserID(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -540,12 +777,15 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputAddImagesToReportInput,
 		ec.unmarshalInputAssignUserInput,
 		ec.unmarshalInputCreateMarkerInput,
 		ec.unmarshalInputCreateUserInput,
+		ec.unmarshalInputCreateWeeklyReportInput,
 		ec.unmarshalInputLoginInput,
 		ec.unmarshalInputRemoveUserInput,
 		ec.unmarshalInputSendNotificationInput,
+		ec.unmarshalInputUploadReportImageInput,
 	)
 	first := true
 
@@ -679,6 +919,17 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_addImagesToReport_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNAddImagesToReportInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐAddImagesToReportInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_assignUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -694,6 +945,17 @@ func (ec *executionContext) field_Mutation_createUser_args(ctx context.Context, 
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateUserInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateUserInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_createWeeklyReport_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateWeeklyReportInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateWeeklyReportInput)
 	if err != nil {
 		return nil, err
 	}
@@ -756,6 +1018,17 @@ func (ec *executionContext) field_Mutation_sendNotification_args(ctx context.Con
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_uploadReportImage_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUploadReportImageInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐUploadReportImageInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -764,6 +1037,49 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_getReportImage_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["key"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_getUserWeeklyReports_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "userID", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
+	if err != nil {
+		return nil, err
+	}
+	args["userID"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "limit", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "offset", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["offset"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_getWeeklyReport_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -945,6 +1261,226 @@ func (ec *executionContext) fieldContext_AuthPayload_user(_ context.Context, fie
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ImageData_key(ctx context.Context, field graphql.CollectedField, obj *model.ImageData) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ImageData_key(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Key, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ImageData_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ImageData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ImageData_data(ctx context.Context, field graphql.CollectedField, obj *model.ImageData) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ImageData_data(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Data, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ImageData_data(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ImageData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ImageData_size(ctx context.Context, field graphql.CollectedField, obj *model.ImageData) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ImageData_size(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Size, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ImageData_size(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ImageData",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ImageUploadResult_key(ctx context.Context, field graphql.CollectedField, obj *model.ImageUploadResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ImageUploadResult_key(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Key, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ImageUploadResult_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ImageUploadResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ImageUploadResult_name(ctx context.Context, field graphql.CollectedField, obj *model.ImageUploadResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ImageUploadResult_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Name, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ImageUploadResult_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ImageUploadResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1673,6 +2209,233 @@ func (ec *executionContext) fieldContext_Mutation_markNotificationAsRead(ctx con
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createWeeklyReport(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createWeeklyReport(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreateWeeklyReport(rctx, fc.Args["input"].(model.CreateWeeklyReportInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*models.WeeklyReport)
+	fc.Result = res
+	return ec.marshalNWeeklyReport2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReport(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createWeeklyReport(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_WeeklyReport_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_WeeklyReport_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_WeeklyReport_updatedAt(ctx, field)
+			case "applications":
+				return ec.fieldContext_WeeklyReport_applications(ctx, field)
+			case "inspection":
+				return ec.fieldContext_WeeklyReport_inspection(ctx, field)
+			case "additional":
+				return ec.fieldContext_WeeklyReport_additional(ctx, field)
+			case "status":
+				return ec.fieldContext_WeeklyReport_status(ctx, field)
+			case "supervisorRate":
+				return ec.fieldContext_WeeklyReport_supervisorRate(ctx, field)
+			case "predsedatelRate":
+				return ec.fieldContext_WeeklyReport_predsedatelRate(ctx, field)
+			case "applicationsImageKeys":
+				return ec.fieldContext_WeeklyReport_applicationsImageKeys(ctx, field)
+			case "inspectionImageKeys":
+				return ec.fieldContext_WeeklyReport_inspectionImageKeys(ctx, field)
+			case "additionalImageKeys":
+				return ec.fieldContext_WeeklyReport_additionalImageKeys(ctx, field)
+			case "userID":
+				return ec.fieldContext_WeeklyReport_userID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type WeeklyReport", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createWeeklyReport_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_uploadReportImage(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_uploadReportImage(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UploadReportImage(rctx, fc.Args["input"].(model.UploadReportImageInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.ImageUploadResult)
+	fc.Result = res
+	return ec.marshalNImageUploadResult2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageUploadResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_uploadReportImage(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_ImageUploadResult_key(ctx, field)
+			case "name":
+				return ec.fieldContext_ImageUploadResult_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ImageUploadResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_uploadReportImage_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_addImagesToReport(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_addImagesToReport(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().AddImagesToReport(rctx, fc.Args["input"].(model.AddImagesToReportInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*models.WeeklyReport)
+	fc.Result = res
+	return ec.marshalNWeeklyReport2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReport(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_addImagesToReport(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_WeeklyReport_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_WeeklyReport_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_WeeklyReport_updatedAt(ctx, field)
+			case "applications":
+				return ec.fieldContext_WeeklyReport_applications(ctx, field)
+			case "inspection":
+				return ec.fieldContext_WeeklyReport_inspection(ctx, field)
+			case "additional":
+				return ec.fieldContext_WeeklyReport_additional(ctx, field)
+			case "status":
+				return ec.fieldContext_WeeklyReport_status(ctx, field)
+			case "supervisorRate":
+				return ec.fieldContext_WeeklyReport_supervisorRate(ctx, field)
+			case "predsedatelRate":
+				return ec.fieldContext_WeeklyReport_predsedatelRate(ctx, field)
+			case "applicationsImageKeys":
+				return ec.fieldContext_WeeklyReport_applicationsImageKeys(ctx, field)
+			case "inspectionImageKeys":
+				return ec.fieldContext_WeeklyReport_inspectionImageKeys(ctx, field)
+			case "additionalImageKeys":
+				return ec.fieldContext_WeeklyReport_additionalImageKeys(ctx, field)
+			case "userID":
+				return ec.fieldContext_WeeklyReport_userID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type WeeklyReport", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_addImagesToReport_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Notification_id(ctx context.Context, field graphql.CollectedField, obj *models.Notification) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Notification_id(ctx, field)
 	if err != nil {
@@ -2366,6 +3129,235 @@ func (ec *executionContext) fieldContext_Query_unreadNotificationsCount(_ contex
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getWeeklyReport(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getWeeklyReport(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetWeeklyReport(rctx, fc.Args["id"].(primitive.ObjectID))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*models.WeeklyReport)
+	fc.Result = res
+	return ec.marshalNWeeklyReport2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReport(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getWeeklyReport(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_WeeklyReport_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_WeeklyReport_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_WeeklyReport_updatedAt(ctx, field)
+			case "applications":
+				return ec.fieldContext_WeeklyReport_applications(ctx, field)
+			case "inspection":
+				return ec.fieldContext_WeeklyReport_inspection(ctx, field)
+			case "additional":
+				return ec.fieldContext_WeeklyReport_additional(ctx, field)
+			case "status":
+				return ec.fieldContext_WeeklyReport_status(ctx, field)
+			case "supervisorRate":
+				return ec.fieldContext_WeeklyReport_supervisorRate(ctx, field)
+			case "predsedatelRate":
+				return ec.fieldContext_WeeklyReport_predsedatelRate(ctx, field)
+			case "applicationsImageKeys":
+				return ec.fieldContext_WeeklyReport_applicationsImageKeys(ctx, field)
+			case "inspectionImageKeys":
+				return ec.fieldContext_WeeklyReport_inspectionImageKeys(ctx, field)
+			case "additionalImageKeys":
+				return ec.fieldContext_WeeklyReport_additionalImageKeys(ctx, field)
+			case "userID":
+				return ec.fieldContext_WeeklyReport_userID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type WeeklyReport", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getWeeklyReport_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getUserWeeklyReports(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getUserWeeklyReports(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetUserWeeklyReports(rctx, fc.Args["userID"].(primitive.ObjectID), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*models.WeeklyReport)
+	fc.Result = res
+	return ec.marshalNWeeklyReport2ᚕᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReportᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getUserWeeklyReports(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_WeeklyReport_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_WeeklyReport_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_WeeklyReport_updatedAt(ctx, field)
+			case "applications":
+				return ec.fieldContext_WeeklyReport_applications(ctx, field)
+			case "inspection":
+				return ec.fieldContext_WeeklyReport_inspection(ctx, field)
+			case "additional":
+				return ec.fieldContext_WeeklyReport_additional(ctx, field)
+			case "status":
+				return ec.fieldContext_WeeklyReport_status(ctx, field)
+			case "supervisorRate":
+				return ec.fieldContext_WeeklyReport_supervisorRate(ctx, field)
+			case "predsedatelRate":
+				return ec.fieldContext_WeeklyReport_predsedatelRate(ctx, field)
+			case "applicationsImageKeys":
+				return ec.fieldContext_WeeklyReport_applicationsImageKeys(ctx, field)
+			case "inspectionImageKeys":
+				return ec.fieldContext_WeeklyReport_inspectionImageKeys(ctx, field)
+			case "additionalImageKeys":
+				return ec.fieldContext_WeeklyReport_additionalImageKeys(ctx, field)
+			case "userID":
+				return ec.fieldContext_WeeklyReport_userID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type WeeklyReport", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getUserWeeklyReports_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getReportImage(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getReportImage(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetReportImage(rctx, fc.Args["key"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.ImageData)
+	fc.Result = res
+	return ec.marshalNImageData2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageData(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getReportImage(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_ImageData_key(ctx, field)
+			case "data":
+				return ec.fieldContext_ImageData_data(ctx, field)
+			case "size":
+				return ec.fieldContext_ImageData_size(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ImageData", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getReportImage_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -3237,6 +4229,572 @@ func (ec *executionContext) fieldContext_UserNotification_readAt(_ context.Conte
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_id(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(primitive.ObjectID)
+	fc.Result = res
+	return ec.marshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_createdAt(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_createdAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CreatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_updatedAt(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_updatedAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UpdatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_applications(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_applications(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Applications, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_applications(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_inspection(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_inspection(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Inspection, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_inspection(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_additional(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_additional(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Additional, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_additional(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_status(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_status(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Status, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(models.ReportStatus)
+	fc.Result = res
+	return ec.marshalNReportStatus2githubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐReportStatus(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ReportStatus does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_supervisorRate(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_supervisorRate(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.SupervisorRate, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*models.Rating)
+	fc.Result = res
+	return ec.marshalORating2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐRating(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_supervisorRate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Rating does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_predsedatelRate(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_predsedatelRate(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PredsedatelRate, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*models.Rating)
+	fc.Result = res
+	return ec.marshalORating2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐRating(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_predsedatelRate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Rating does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_applicationsImageKeys(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_applicationsImageKeys(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ApplicationsImageKeys, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_applicationsImageKeys(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_inspectionImageKeys(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_inspectionImageKeys(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.InspectionImageKeys, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_inspectionImageKeys(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_additionalImageKeys(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_additionalImageKeys(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.AdditionalImageKeys, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_additionalImageKeys(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklyReport_userID(ctx context.Context, field graphql.CollectedField, obj *models.WeeklyReport) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeeklyReport_userID(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UserID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(primitive.ObjectID)
+	fc.Result = res
+	return ec.marshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeeklyReport_userID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklyReport",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5193,6 +6751,54 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputAddImagesToReportInput(ctx context.Context, obj any) (model.AddImagesToReportInput, error) {
+	var it model.AddImagesToReportInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"reportID", "applicationsImageKeys", "inspectionImageKeys", "additionalImageKeys"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "reportID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("reportID"))
+			data, err := ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ReportID = data
+		case "applicationsImageKeys":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("applicationsImageKeys"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ApplicationsImageKeys = data
+		case "inspectionImageKeys":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("inspectionImageKeys"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.InspectionImageKeys = data
+		case "additionalImageKeys":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("additionalImageKeys"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AdditionalImageKeys = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputAssignUserInput(ctx context.Context, obj any) (model.AssignUserInput, error) {
 	var it model.AssignUserInput
 	asMap := map[string]any{}
@@ -5337,6 +6943,47 @@ func (ec *executionContext) unmarshalInputCreateUserInput(ctx context.Context, o
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreateWeeklyReportInput(ctx context.Context, obj any) (model.CreateWeeklyReportInput, error) {
+	var it model.CreateWeeklyReportInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"applications", "inspection", "additional"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "applications":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("applications"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Applications = data
+		case "inspection":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("inspection"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Inspection = data
+		case "additional":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("additional"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Additional = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputLoginInput(ctx context.Context, obj any) (model.LoginInput, error) {
 	var it model.LoginInput
 	asMap := map[string]any{}
@@ -5453,6 +7100,33 @@ func (ec *executionContext) unmarshalInputSendNotificationInput(ctx context.Cont
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputUploadReportImageInput(ctx context.Context, obj any) (model.UploadReportImageInput, error) {
+	var it model.UploadReportImageInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"file"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "file":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("file"))
+			data, err := ec.unmarshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.File = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -5479,6 +7153,99 @@ func (ec *executionContext) _AuthPayload(ctx context.Context, sel ast.SelectionS
 			}
 		case "user":
 			out.Values[i] = ec._AuthPayload_user(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var imageDataImplementors = []string{"ImageData"}
+
+func (ec *executionContext) _ImageData(ctx context.Context, sel ast.SelectionSet, obj *model.ImageData) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, imageDataImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ImageData")
+		case "key":
+			out.Values[i] = ec._ImageData_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "data":
+			out.Values[i] = ec._ImageData_data(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "size":
+			out.Values[i] = ec._ImageData_size(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var imageUploadResultImplementors = []string{"ImageUploadResult"}
+
+func (ec *executionContext) _ImageUploadResult(ctx context.Context, sel ast.SelectionSet, obj *model.ImageUploadResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, imageUploadResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ImageUploadResult")
+		case "key":
+			out.Values[i] = ec._ImageUploadResult_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._ImageUploadResult_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -5635,6 +7402,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "markNotificationAsRead":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_markNotificationAsRead(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createWeeklyReport":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createWeeklyReport(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "uploadReportImage":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_uploadReportImage(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "addImagesToReport":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_addImagesToReport(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -5929,6 +7717,72 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getWeeklyReport":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getWeeklyReport(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getUserWeeklyReports":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getUserWeeklyReports(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getReportImage":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getReportImage(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -6158,6 +8012,99 @@ func (ec *executionContext) _UserNotification(ctx context.Context, sel ast.Selec
 			out.Values[i] = ec._UserNotification_readAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var weeklyReportImplementors = []string{"WeeklyReport"}
+
+func (ec *executionContext) _WeeklyReport(ctx context.Context, sel ast.SelectionSet, obj *models.WeeklyReport) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, weeklyReportImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WeeklyReport")
+		case "id":
+			out.Values[i] = ec._WeeklyReport_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._WeeklyReport_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._WeeklyReport_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "applications":
+			out.Values[i] = ec._WeeklyReport_applications(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inspection":
+			out.Values[i] = ec._WeeklyReport_inspection(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "additional":
+			out.Values[i] = ec._WeeklyReport_additional(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._WeeklyReport_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "supervisorRate":
+			out.Values[i] = ec._WeeklyReport_supervisorRate(ctx, field, obj)
+		case "predsedatelRate":
+			out.Values[i] = ec._WeeklyReport_predsedatelRate(ctx, field, obj)
+		case "applicationsImageKeys":
+			out.Values[i] = ec._WeeklyReport_applicationsImageKeys(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inspectionImageKeys":
+			out.Values[i] = ec._WeeklyReport_inspectionImageKeys(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "additionalImageKeys":
+			out.Values[i] = ec._WeeklyReport_additionalImageKeys(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "userID":
+			out.Values[i] = ec._WeeklyReport_userID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -6517,6 +8464,11 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) unmarshalNAddImagesToReportInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐAddImagesToReportInput(ctx context.Context, v any) (model.AddImagesToReportInput, error) {
+	res, err := ec.unmarshalInputAddImagesToReportInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNAssignUserInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐAssignUserInput(ctx context.Context, v any) (model.AssignUserInput, error) {
 	res, err := ec.unmarshalInputAssignUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6554,6 +8506,11 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 
 func (ec *executionContext) unmarshalNCreateUserInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateUserInput(ctx context.Context, v any) (model.CreateUserInput, error) {
 	res, err := ec.unmarshalInputCreateUserInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNCreateWeeklyReportInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐCreateWeeklyReportInput(ctx context.Context, v any) (model.CreateWeeklyReportInput, error) {
+	res, err := ec.unmarshalInputCreateWeeklyReportInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -6647,6 +8604,34 @@ func (ec *executionContext) marshalNID2ᚕgoᚗmongodbᚗorgᚋmongoᚑdriverᚋ
 	}
 
 	return ret
+}
+
+func (ec *executionContext) marshalNImageData2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageData(ctx context.Context, sel ast.SelectionSet, v model.ImageData) graphql.Marshaler {
+	return ec._ImageData(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNImageData2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageData(ctx context.Context, sel ast.SelectionSet, v *model.ImageData) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ImageData(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNImageUploadResult2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageUploadResult(ctx context.Context, sel ast.SelectionSet, v model.ImageUploadResult) graphql.Marshaler {
+	return ec._ImageUploadResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNImageUploadResult2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageUploadResult(ctx context.Context, sel ast.SelectionSet, v *model.ImageUploadResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ImageUploadResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
@@ -6795,6 +8780,23 @@ func (ec *executionContext) unmarshalNRemoveUserInput2githubᚗcomᚋDGISsoftᚋ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNReportStatus2githubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐReportStatus(ctx context.Context, v any) (models.ReportStatus, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := models.ReportStatus(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNReportStatus2githubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐReportStatus(ctx context.Context, sel ast.SelectionSet, v models.ReportStatus) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) unmarshalNSendNotificationInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐSendNotificationInput(ctx context.Context, v any) (model.SendNotificationInput, error) {
 	res, err := ec.unmarshalInputSendNotificationInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6814,6 +8816,36 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
@@ -6852,6 +8884,27 @@ func (ec *executionContext) marshalNTime2ᚖtimeᚐTime(ctx context.Context, sel
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, v any) (graphql.Upload, error) {
+	res, err := graphql.UnmarshalUpload(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, sel ast.SelectionSet, v graphql.Upload) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalUpload(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNUploadReportImageInput2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐUploadReportImageInput(ctx context.Context, v any) (model.UploadReportImageInput, error) {
+	res, err := ec.unmarshalInputUploadReportImageInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNUser2githubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUser(ctx context.Context, sel ast.SelectionSet, v models.User) graphql.Marshaler {
@@ -6981,6 +9034,64 @@ func (ec *executionContext) marshalNUserRole2githubᚗcomᚋDGISsoftᚋDGISback�
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNWeeklyReport2githubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReport(ctx context.Context, sel ast.SelectionSet, v models.WeeklyReport) graphql.Marshaler {
+	return ec._WeeklyReport(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNWeeklyReport2ᚕᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReportᚄ(ctx context.Context, sel ast.SelectionSet, v []*models.WeeklyReport) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNWeeklyReport2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReport(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNWeeklyReport2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReport(ctx context.Context, sel ast.SelectionSet, v *models.WeeklyReport) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._WeeklyReport(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
@@ -7366,6 +9477,61 @@ func (ec *executionContext) marshalONotificationType2ᚖgithubᚗcomᚋDGISsoft�
 	_ = ctx
 	res := graphql.MarshalString(string(*v))
 	return res
+}
+
+func (ec *executionContext) unmarshalORating2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐRating(ctx context.Context, v any) (*models.Rating, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := models.Rating(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalORating2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐRating(ctx context.Context, sel ast.SelectionSet, v *models.Rating) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

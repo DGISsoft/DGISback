@@ -46,3 +46,15 @@ models:
   UserNotification:
     model:
       - github.com/DGISsoft/DGISback/models.UserNotification
+  WeeklyReport:
+    model:
+      - github.com/DGISsoft/DGISback/models.WeeklyReport
+  ReportStatus:
+    model:
+      - github.com/DGISsoft/DGISback/models.ReportStatus
+  Rating:
+    model:
+      - github.com/DGISsoft/DGISback/models.Rating
+  Upload:
+    model:
+      - github.com/99designs/gqlgen/graphql.Upload

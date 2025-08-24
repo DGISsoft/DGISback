@@ -4,7 +4,9 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"time"
 
@@ -46,6 +48,30 @@ func GetResponseWriterFromContext(ctx context.Context) (http.ResponseWriter, err
 		return w, nil
 	}
 	return nil, fmt.Errorf("http.ResponseWriter not found in context")
+}
+
+// GetUploadedFileFromContext извлекает данные загруженного файла из контекста
+func GetUploadedFileFromContext(ctx context.Context) ([]byte, bool) {
+	if fileData, ok := ctx.Value("uploadedFile").([]byte); ok && fileData != nil {
+		return fileData, true
+	}
+	return nil, false
+}
+
+// GetUploadedFilenameFromContext извлекает имя загруженного файла из контекста
+func GetUploadedFilenameFromContext(ctx context.Context) (string, bool) {
+	if filename, ok := ctx.Value("filename").(string); ok && filename != "" {
+		return filename, true
+	}
+	return "", false
+}
+
+// GetUploadedContentTypeFromContext извлекает тип содержимого загруженного файла из контекста
+func GetUploadedContentTypeFromContext(ctx context.Context) (string, bool) {
+	if contentType, ok := ctx.Value("contentType").(string); ok && contentType != "" {
+		return contentType, true
+	}
+	return "", false
 }
 
 func SignalSetAuthCookieDirect(w http.ResponseWriter, tokenString string) {
@@ -110,5 +136,51 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		log.Println("Auth: Calling next handler")
 		next.ServeHTTP(w, rWithAuth)
 		log.Println("Auth: Handler finished")
+	})
+}
+
+func UploadMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Проверяем, является ли запрос multipart/form-data
+		contentType := r.Header.Get("Content-Type")
+		if r.Method == "POST" && contentType != "" && len(contentType) >= 9 && 
+		   contentType[:9] == "multipart" {
+			
+			// Увеличиваем максимальный размер загружаемых данных
+			err := r.ParseMultipartForm(32 << 20) // 32MB
+			if err != nil {
+				http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
+				return
+			}
+
+			// Ищем файл в форме
+			var file multipart.File
+			var fileHeader *multipart.FileHeader
+			
+			// Пробуем найти файл по разным ключам
+			for _, key := range []string{"file", "upload", "image"} {
+				file, fileHeader, err = r.FormFile(key)
+				if err == nil && file != nil {
+					defer file.Close()
+					
+					// Читаем содержимое файла
+					fileData, err := io.ReadAll(file)
+					if err != nil {
+						http.Error(w, "Failed to read file", http.StatusBadRequest)
+						return
+					}
+					
+					// Добавляем данные файла в контекст
+					ctx := context.WithValue(r.Context(), "uploadedFile", fileData)
+					ctx = context.WithValue(ctx, "filename", fileHeader.Filename)
+					ctx = context.WithValue(ctx, "contentType", fileHeader.Header.Get("Content-Type"))
+					
+					r = r.WithContext(ctx)
+					break
+				}
+			}
+		}
+		
+		next.ServeHTTP(w, r)
 	})
 }

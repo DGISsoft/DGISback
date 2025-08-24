@@ -13,4 +13,5 @@ type Resolver struct{
 	MarkerService *mongo.MarkerService
 	NotificationService *mongo.NotificationService
 	RedisService *redis.RedisService
+	ReportService *mongo.ReportService
 }

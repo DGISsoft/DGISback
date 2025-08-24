@@ -6,6 +6,7 @@ package graph
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"time"
@@ -260,8 +261,7 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 		return false, fmt.Errorf("could not send notification")
 	}
 
-	// 2. Создать пользовательские уведомления и оповестить получателей
-	// ВАЖНО: Передаем ctx в CreateUserNotifications
+
 	err = r.NotificationService.CreateUserNotifications(ctx, notification.ID, recipientIDs, senderID)
 	if err != nil {
 		log.Printf("SendNotification: Failed to create user notifications: %v", err)
@@ -307,26 +307,158 @@ func (r *mutationResolver) MarkNotificationAsRead(ctx context.Context, id primit
 	}
 
 	log.Printf("MarkNotificationAsRead: Successfully marked user notification %s as read for user %s", id.Hex(), requesterID.Hex())
-	
-	// === ДОБАВЛЕННЫЙ КОД ДЛЯ ПУБЛИКАЦИИ В REDIS ===
-	// После успешного изменения статуса, публикуем сообщение в Redis
+
 	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", requesterID.Hex())
-	log.Printf("MarkNotificationAsRead: Attempting to publish to Redis channel: %s", redisChannel) // Добавлен лог
-	// Предполагается, что Publish принимает context
-	err = r.RedisService.Publish(ctx, redisChannel, "updated") 
+	log.Printf("MarkNotificationAsRead: Attempting to publish to Redis channel: %s", redisChannel)
+
+	err = r.RedisService.Publish(ctx, redisChannel, "updated")
 	if err != nil {
-		// Логируем ошибку, но не возвращаем её клиенту, 
-		// так как основная операция (mark as read) прошла успешно
+
 		log.Printf("MarkNotificationAsRead: Failed to publish to Redis channel %s: %v", redisChannel, err)
-		// Можно решить, стоит ли здесь возвращать ошибку или нет.
-		// Обычно ошибки публикации в Redis не критичны для основной бизнес-логики.
-		// return false, fmt.Errorf("failed to notify subscribers: %w", err) // Опционально
+
 	} else {
 		log.Printf("MarkNotificationAsRead: Successfully published to Redis channel: %s", redisChannel) // Добавлен лог
 	}
 	// ================================================
 
 	return true, nil
+}
+
+// CreateWeeklyReport is the resolver for the createWeeklyReport field.
+func (r *mutationResolver) CreateWeeklyReport(ctx context.Context, input model.CreateWeeklyReportInput) (*models.WeeklyReport, error) {
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return nil, fmt.Errorf("unauthorized")
+	}
+
+	// Получаем ID пользователя из токена
+	userID, err := primitive.ObjectIDFromHex(userClaims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID in token")
+	}
+
+	// Создаем отчет
+	report := &models.WeeklyReport{
+		Applications:          input.Applications,
+		Inspection:            input.Inspection,
+		Additional:            input.Additional,
+		UserID:                userID,
+		Status:                models.StatusNotReviewed, // По умолчанию не рассмотрен
+		ApplicationsImageKeys: []string{},
+		InspectionImageKeys:   []string{},
+		AdditionalImageKeys:   []string{},
+	}
+
+	// Если это отчет от председателя, то сразу ставим статус "рассмотрен"
+	user, err := r.UserService.GetUserByID(ctx, userID)
+	if err == nil && user.Role == models.UserRolePredsedatel {
+		report.Status = models.StatusReviewed
+	}
+
+	createdReport, err := r.ReportService.CreateWeeklyReport(ctx, report)
+	if err != nil {
+		log.Printf("CreateWeeklyReport: Failed to create report for user %s: %v", userID.Hex(), err)
+		return nil, fmt.Errorf("failed to create report: %w", err)
+	}
+
+	return createdReport, nil
+}
+
+// UploadReportImage is the resolver for the uploadReportImage field.
+func (r *mutationResolver) UploadReportImage(ctx context.Context, input model.UploadReportImageInput) (*model.ImageUploadResult, error) {
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return nil, fmt.Errorf("unauthorized")
+	}
+
+	// Извлекаем данные файла из контекста
+	fileContent, ok := middleware.GetUploadedFileFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("uploaded file not found in context")
+	}
+
+	filename, ok := middleware.GetUploadedFilenameFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("uploaded filename not found in context")
+	}
+
+	contentType, ok := middleware.GetUploadedContentTypeFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("uploaded content type not found in context")
+	}
+
+	// Генерируем уникальное имя файла
+	uniqueFilename := fmt.Sprintf("%s_%d_%s", userClaims.UserID, time.Now().Unix(), filename)
+
+	// Загружаем в S3
+	imageKey, err := r.ReportService.UploadImage(ctx, fileContent, uniqueFilename, contentType)
+	if err != nil {
+		log.Printf("UploadReportImage: Failed to upload image for user %s: %v", userClaims.UserID, err)
+		return nil, fmt.Errorf("failed to upload image: %w", err)
+	}
+
+	return &model.ImageUploadResult{
+		Key:  imageKey,
+		Name: uniqueFilename,
+	}, nil
+}
+
+// AddImagesToReport is the resolver for the addImagesToReport field.
+func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.AddImagesToReportInput) (*models.WeeklyReport, error) {
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return nil, fmt.Errorf("unauthorized")
+	}
+
+	// Проверяем права доступа
+	report, err := r.ReportService.GetWeeklyReportByID(ctx, input.ReportID)
+	if err != nil {
+		return nil, fmt.Errorf("report not found")
+	}
+
+	userID, err := primitive.ObjectIDFromHex(userClaims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID in token")
+	}
+
+	// Если отчет не принадлежит пользователю, проверяем права
+	if report.UserID != userID {
+		user, err := r.UserService.GetUserByID(ctx, userID)
+		if err != nil || (user.Role != models.UserRoleSupervisor && user.Role != models.UserRoleDgis && user.Role != models.UserRolePredsedatel) {
+			return nil, fmt.Errorf("access denied")
+		}
+	}
+
+	// Подготавливаем списки ключей
+	appKeys := []string{}
+	if input.ApplicationsImageKeys != nil {
+		appKeys = input.ApplicationsImageKeys
+	}
+	
+	inspKeys := []string{}
+	if input.InspectionImageKeys != nil {
+		inspKeys = input.InspectionImageKeys
+	}
+	
+	addKeys := []string{}
+	if input.AdditionalImageKeys != nil {
+		addKeys = input.AdditionalImageKeys
+	}
+
+	// Добавляем ключи изображений к отчету
+	err = r.ReportService.AddImageKeysToReport(ctx, input.ReportID, appKeys, inspKeys, addKeys)
+	if err != nil {
+		log.Printf("AddImagesToReport: Failed to add images to report %s: %v", input.ReportID.Hex(), err)
+		return nil, fmt.Errorf("failed to add images to report: %w", err)
+	}
+
+	// Получаем обновленный отчет
+	updatedReport, err := r.ReportService.GetWeeklyReportByID(ctx, input.ReportID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get updated report: %w", err)
+	}
+
+	return updatedReport, nil
 }
 
 // Sender is the resolver for the sender field.
@@ -510,7 +642,57 @@ func (r *queryResolver) UnreadNotificationsCount(ctx context.Context) (int, erro
 	return count, nil
 }
 
-// UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
+// GetWeeklyReport is the resolver for the getWeeklyReport field.
+func (r *queryResolver) GetWeeklyReport(ctx context.Context, id primitive.ObjectID) (*models.WeeklyReport, error) {
+	report, err := r.ReportService.GetWeeklyReportByID(ctx, id)
+	if err != nil {
+		log.Printf("GetWeeklyReport: Failed to get report %s: %v", id.Hex(), err)
+		return nil, fmt.Errorf("report not found: %w", err)
+	}
+
+	return report, nil
+}
+
+// GetUserWeeklyReports is the resolver for the getUserWeeklyReports field.
+func (r *queryResolver) GetUserWeeklyReports(ctx context.Context, userID primitive.ObjectID, limit *int, offset *int) ([]*models.WeeklyReport, error) {
+	limitVal := int64(20)
+	if limit != nil && *limit > 0 {
+		limitVal = int64(*limit)
+	}
+	
+	offsetVal := int64(0)
+	if offset != nil && *offset > 0 {
+		offsetVal = int64(*offset)
+	}
+
+	reports, err := r.ReportService.GetWeeklyReportsByUserID(ctx, userID, limitVal, offsetVal)
+	if err != nil {
+		log.Printf("GetUserWeeklyReports: Failed to get reports for user %s: %v", userID.Hex(), err)
+		return nil, fmt.Errorf("failed to get user reports: %w", err)
+	}
+
+	return reports, nil
+}
+
+// GetReportImage is the resolver for the getReportImage field.
+func (r *queryResolver) GetReportImage(ctx context.Context, key string) (*model.ImageData, error) {
+	// Получаем изображение из S3
+	content, err := r.ReportService.GetImage(ctx, key)
+	if err != nil {
+		log.Printf("GetReportImage: Failed to get image %s: %v", key, err)
+		return nil, fmt.Errorf("failed to get image: %w", err)
+	}
+
+	// Кодируем в base64 для передачи клиенту
+	encoded := base64.StdEncoding.EncodeToString(content)
+
+	return &model.ImageData{
+		Key:  key,
+		Data: encoded,
+		Size: len(content),
+	}, nil
+}
+
 // UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
 func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Context) (<-chan int, error) {
 	// 1. Извлекаем информацию о пользователе из контекста
@@ -530,18 +712,14 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 	}
 
 	// 3. Создаем канал для отправки обновлений клиенту
-	notificationsChannel := make(chan int, 1) 
+	notificationsChannel := make(chan int, 1)
 
 	// 4. Формируем уникальный ключ канала Redis Pub/Sub для этого пользователя
 	// ВАЖНО: Имя канала ДОЛЖНО быть в точности таким же, как в MarkNotificationAsRead
-	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex()) 
-	log.Printf("UnreadNotificationsCountChanged: User %s subscribing to Redis channel: %s", userID.Hex(), redisChannel) 
+	redisChannel := fmt.Sprintf("unread_notifications_changed:%s", userID.Hex())
+	log.Printf("UnreadNotificationsCountChanged: User %s subscribing to Redis channel: %s", userID.Hex(), redisChannel)
 
-	// 5. Подписываемся на Redis канал
-	// Убедитесь, что Subscribe принимает только имя канала, как строку.
-	// Если ваша реализация требует context, используйте его.
-	// pubsub := r.RedisService.Subscribe(ctx, redisChannel) // Если метод принимает context
-	pubsub := r.RedisService.Subscribe(ctx, redisChannel) // Судя по вашему коду redis.Service, это правильный вызов
+	pubsub := r.RedisService.Subscribe(ctx, redisChannel)
 
 	// 6. Запускаем горутину для обработки подписки на Redis
 	go func() {
@@ -597,7 +775,7 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 					// Если вы НЕ ВИДИТЕ эту строку в логах после публикации в Redis,
 					// значит, подписка на Redis не работает.
 					log.Printf("UnreadNotificationsCountChanged: Received message on Redis channel for user %s: Channel=%s, Payload=%s", userID.Hex(), msg.Channel, msg.Payload)
-					
+
 					// 9. Получаем актуальное количество
 					currentCount, err := r.NotificationService.GetUnreadCount(ctx, userID)
 					if err != nil {

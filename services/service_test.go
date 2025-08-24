@@ -11,6 +11,7 @@ import (
 	"github.com/DGISsoft/DGISback/models"
 	"github.com/DGISsoft/DGISback/services/mongo/command"
 	red "github.com/DGISsoft/DGISback/services/redis"
+	"github.com/DGISsoft/DGISback/services/s3"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -79,4 +80,38 @@ func TestRedis(t *testing.T) {
 	}
 	fmt.Println(value)
 	redisService.DeleteValue("test_key")
+}
+
+
+func TestS3UploadAndDeleteFile(t *testing.T) {
+	s3cfg := &s3.S3ClientConfig{
+		Bucket:    "viget-1",
+		Endpoint:  env.GetEnv("AWS_ENDPOINT", ""),
+		Region:    env.GetEnv("AWS_REGION", ""),
+		AccessKey: env.GetEnv("AWS_ACCESS_KEY_ID", ""),
+		SecretKey: env.GetEnv("AWS_SECRET_ACCESS_KEY", ""),
+	}
+
+	key := "resume/test_file.json"
+	content := []byte("hello from test")
+	contentType := "text/plain"
+
+	service, err := s3.NewS3Service(s3cfg)
+	assert.NoError(t, err, "create S3 service")
+
+	assert.NoError(t, err, "config load error")
+
+	err = service.UploadFile(context.TODO(), s3cfg.Bucket, key, content, contentType)
+	assert.NoError(t, err, "upload file error")
+
+	exists, err := service.FileExists(context.TODO(), s3cfg.Bucket, key)
+	assert.NoError(t, err, "file exists check error")
+	assert.True(t, exists, "file should exist")
+
+	err = service.DeleteFile(context.TODO(), s3cfg.Bucket, key)
+	assert.NoError(t, err, "delete file error")
+
+	exists, err = service.FileExists(context.TODO(), s3cfg.Bucket, key)
+	assert.NoError(t, err, "file exists after delete check error")
+	assert.False(t, exists, "file should not exist after deletion")
 }

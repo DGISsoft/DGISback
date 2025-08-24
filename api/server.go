@@ -70,19 +70,19 @@ func createDefaultAdmin(userService *serv.UserService) {
 	log.Printf("Default admin user '%s' created successfully!", defaultAdminLogin)
 }
 
-// loggingMiddleware добавляет подробное логирование для отладки запросов, особенно WebSocket upgrade.
+
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[HTTP] START: %s %s", r.Method, r.URL.Path)
 		log.Printf("[HTTP] Headers: Connection=%s, Upgrade=%s, Origin=%s, Sec-WebSocket-Key=%.10s...", 
 			r.Header.Get("Connection"), r.Header.Get("Upgrade"), r.Header.Get("Origin"), r.Header.Get("Sec-WebSocket-Key"))
 
-		// Проверяем, является ли это запросом на обновление до WebSocket
+
 		if r.Header.Get("Connection") == "Upgrade" && r.Header.Get("Upgrade") == "websocket" {
 			log.Printf("[HTTP] -> This is a WebSocket Upgrade request")
 		}
 
-		// Вызываем следующий обработчик в цепочке
+
 		next.ServeHTTP(w, r)
 
 		log.Printf("[HTTP] END: %s %s", r.Method, r.URL.Path)
@@ -134,7 +134,7 @@ func main() {
 	
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 	
-	// --- Обновленная настройка Websocket Transport с логированием в CheckOrigin ---
+
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
 		Upgrader: websocket.Upgrader{
@@ -157,7 +157,7 @@ func main() {
 			},
 		},
 	})
-	// --- Конец обновленной настройки ---
+
 	
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})

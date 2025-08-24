@@ -13,10 +13,12 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/DGISsoft/DGISback/api/graph"
+	"github.com/DGISsoft/DGISback/env"
 	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models"
 	serv "github.com/DGISsoft/DGISback/services/mongo"
 	"github.com/DGISsoft/DGISback/services/redis"
+	"github.com/DGISsoft/DGISback/services/s3"
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -115,6 +117,28 @@ func main() {
 
 	createDefaultAdmin(userService)
 
+	s3cfg := &s3.S3ClientConfig{
+		Bucket:    env.GetEnv("S3_BUCKET", "your-default-bucket"),
+		Endpoint:  env.GetEnv("S3_ENDPOINT", ""),
+		Region:    env.GetEnv("S3_REGION", ""),
+		AccessKey: env.GetEnv("S3_ACCESS_KEY", ""),
+		SecretKey: env.GetEnv("S3_SECRET_KEY", ""),
+	}
+
+
+	s3.Init(
+		s3cfg.Bucket,
+		s3cfg.Endpoint,
+		s3cfg.Region,
+		s3cfg.AccessKey,
+		s3cfg.SecretKey,
+	)
+	
+
+	if s3.Service == nil {
+		log.Fatal("Failed to initialize S3 service")
+	}
+
 	resolver := &graph.Resolver{
 		UserService:          userService,
 		MarkerService:        markerService,
@@ -175,10 +199,8 @@ func main() {
 	muxGraphql := http.NewServeMux()
 	muxGraphql.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	
-	// Применяем loggingMiddleware, затем CORS, затем AuthMiddleware к srv
-	// Это гарантирует, что все запросы на /query (включая WS upgrade) будут залогированы,
-	// пройдут CORS, а затем AuthMiddleware перед попаданием в gqlgen handler (srv).
-	muxGraphql.Handle("/query", loggingMiddleware(c.Handler(middleware.AuthMiddleware(srv))))
+
+	muxGraphql.Handle("/query", loggingMiddleware(c.Handler(middleware.UploadMiddleware(middleware.AuthMiddleware(srv)))))
 
 	log.Printf("Starting GraphQL server on :%s", port)
 	if err := http.ListenAndServe(":"+port, muxGraphql); err != nil {

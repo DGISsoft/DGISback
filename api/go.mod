@@ -12,7 +12,7 @@ require (
 
 require (
 	github.com/DGISsoft/DGISback/env v0.0.0-20250821061323-11d96099f993
-	github.com/DGISsoft/DGISback/middleware v0.0.0-20250822094522-9f1596873fe4
+	github.com/DGISsoft/DGISback/middleware v0.0.0-20250824055517-f0c998379dd2
 	github.com/DGISsoft/DGISback/models v0.0.0-20250824045235-6daf94304e34
 	github.com/DGISsoft/DGISback/services v0.0.0-20250824045235-6daf94304e34
 	github.com/gorilla/websocket v1.5.3

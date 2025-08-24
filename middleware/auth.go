@@ -4,9 +4,7 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"time"
 
@@ -136,51 +134,5 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		log.Println("Auth: Calling next handler")
 		next.ServeHTTP(w, rWithAuth)
 		log.Println("Auth: Handler finished")
-	})
-}
-
-func UploadMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Проверяем, является ли запрос multipart/form-data
-		contentType := r.Header.Get("Content-Type")
-		if r.Method == "POST" && contentType != "" && len(contentType) >= 9 && 
-		   contentType[:9] == "multipart" {
-			
-			// Увеличиваем максимальный размер загружаемых данных
-			err := r.ParseMultipartForm(32 << 20) // 32MB
-			if err != nil {
-				http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
-				return
-			}
-
-			// Ищем файл в форме
-			var file multipart.File
-			var fileHeader *multipart.FileHeader
-			
-			// Пробуем найти файл по разным ключам
-			for _, key := range []string{"file", "upload", "image"} {
-				file, fileHeader, err = r.FormFile(key)
-				if err == nil && file != nil {
-					defer file.Close()
-					
-					// Читаем содержимое файла
-					fileData, err := io.ReadAll(file)
-					if err != nil {
-						http.Error(w, "Failed to read file", http.StatusBadRequest)
-						return
-					}
-					
-					// Добавляем данные файла в контекст
-					ctx := context.WithValue(r.Context(), "uploadedFile", fileData)
-					ctx = context.WithValue(ctx, "filename", fileHeader.Filename)
-					ctx = context.WithValue(ctx, "contentType", fileHeader.Header.Get("Content-Type"))
-					
-					r = r.WithContext(ctx)
-					break
-				}
-			}
-		}
-		
-		next.ServeHTTP(w, r)
 	})
 }

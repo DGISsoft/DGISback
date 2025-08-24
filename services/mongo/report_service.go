@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/DGISsoft/DGISback/env"
 	"github.com/DGISsoft/DGISback/models"
 	"github.com/DGISsoft/DGISback/services/mongo/query"
 	"github.com/DGISsoft/DGISback/services/s3"
@@ -33,16 +34,13 @@ func (s *ReportService) CreateWeeklyReport(
 ) (*models.WeeklyReport, error) {
 	collection := s.GetCollection()
 
-
 	now := time.Now()
 	report.CreatedAt = now
 	report.UpdatedAt = now
 
-
 	if report.Status == "" {
 		report.Status = models.StatusNotReviewed
 	}
-
 
 	res, err := collection.InsertOne(ctx, report)
 	if err != nil {
@@ -137,7 +135,6 @@ func (s *ReportService) SetSupervisorRate(
 	id primitive.ObjectID,
 	rate models.Rating,
 ) error {
-
 	if rate != models.RatingGood && rate != models.RatingBad {
 		return fmt.Errorf("invalid rating value, must be 'good' or 'bad'")
 	}
@@ -161,15 +158,13 @@ func (s *ReportService) DeleteWeeklyReport(
 ) error {
 	collection := s.GetCollection()
 
-
 	report, err := s.GetWeeklyReportByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get report for deletion: %w", err)
 	}
 
-
 	if s3.Service != nil {
-		bucket := "your-bucket-name"
+		bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 		for _, key := range report.ApplicationsImageKeys {
 			s3.Service.DeleteFile(ctx, bucket, key)
 		}
@@ -181,7 +176,6 @@ func (s *ReportService) DeleteWeeklyReport(
 		}
 	}
 
-
 	_, err = collection.DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil {
 		return fmt.Errorf("failed to delete weekly report: %w", err)
@@ -190,7 +184,6 @@ func (s *ReportService) DeleteWeeklyReport(
 	log.Printf("ReportService: Deleted report with ID %s", id.Hex())
 	return nil
 }
-
 
 func (s *ReportService) AddImageKeysToReport(
 	ctx context.Context,
@@ -237,9 +230,8 @@ func (s *ReportService) UploadImage(
 		return "", fmt.Errorf("S3 service not initialized")
 	}
 
-
 	uniqueFileName := fmt.Sprintf("%d_%s", time.Now().Unix(), fileName)
-	bucket := "your-bucket-name" // Замените на ваш bucket
+	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 
 	err := s3.Service.UploadFile(ctx, bucket, uniqueFileName, fileContent, contentType)
 	if err != nil {
@@ -250,7 +242,6 @@ func (s *ReportService) UploadImage(
 	return uniqueFileName, nil
 }
 
-
 func (s *ReportService) GetImage(
 	ctx context.Context,
 	key string,
@@ -259,7 +250,7 @@ func (s *ReportService) GetImage(
 		return nil, fmt.Errorf("S3 service not initialized")
 	}
 
-	bucket := "your-bucket-name" // Замените на ваш bucket
+	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 	content, err := s3.Service.DownloadFile(ctx, bucket, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download image from S3: %w", err)

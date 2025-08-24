@@ -154,6 +154,7 @@ func (s *ReportService) SetPredsedatelRate(
 
 func (s *ReportService) DeleteWeeklyReport(
 	ctx context.Context,
+	bucket string, // Добавлен параметр bucket
 	id primitive.ObjectID,
 ) error {
 	collection := s.GetCollection()
@@ -163,8 +164,11 @@ func (s *ReportService) DeleteWeeklyReport(
 		return fmt.Errorf("failed to get report for deletion: %w", err)
 	}
 
+	// Используем переданный bucket
 	if s3.Service != nil {
-		bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
+		if bucket == "" {
+			bucket = env.GetEnv("S3_BUCKET", "your-default-bucket")
+		}
 		for _, key := range report.ApplicationsImageKeys {
 			s3.Service.DeleteFile(ctx, bucket, key)
 		}
@@ -222,6 +226,7 @@ func (s *ReportService) AddImageKeysToReport(
 
 func (s *ReportService) UploadImage(
 	ctx context.Context,
+	bucket string, // Добавлен параметр bucket
 	fileContent []byte,
 	fileName string,
 	contentType string,
@@ -230,8 +235,12 @@ func (s *ReportService) UploadImage(
 		return "", fmt.Errorf("S3 service not initialized")
 	}
 
+	// Используем переданный bucket
+	if bucket == "" {
+		bucket = env.GetEnv("S3_BUCKET", "your-default-bucket")
+	}
+
 	uniqueFileName := fmt.Sprintf("%d_%s", time.Now().Unix(), fileName)
-	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 
 	err := s3.Service.UploadFile(ctx, bucket, uniqueFileName, fileContent, contentType)
 	if err != nil {
@@ -244,13 +253,18 @@ func (s *ReportService) UploadImage(
 
 func (s *ReportService) GetImage(
 	ctx context.Context,
+	bucket string, // Добавлен параметр bucket
 	key string,
 ) ([]byte, error) {
 	if s3.Service == nil {
 		return nil, fmt.Errorf("S3 service not initialized")
 	}
 
-	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
+	// Используем переданный bucket
+	if bucket == "" {
+		bucket = env.GetEnv("S3_BUCKET", "your-default-bucket")
+	}
+
 	content, err := s3.Service.DownloadFile(ctx, bucket, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download image from S3: %w", err)

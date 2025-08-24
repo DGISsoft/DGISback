@@ -8,11 +8,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
 	"github.com/DGISsoft/DGISback/api/auth"
 	"github.com/DGISsoft/DGISback/api/graph/model"
+	"github.com/DGISsoft/DGISback/env"
 	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models"
 	"github.com/DGISsoft/DGISback/services/mongo/query"
@@ -261,7 +263,6 @@ func (r *mutationResolver) SendNotification(ctx context.Context, input model.Sen
 		return false, fmt.Errorf("could not send notification")
 	}
 
-
 	err = r.NotificationService.CreateUserNotifications(ctx, notification.ID, recipientIDs, senderID)
 	if err != nil {
 		log.Printf("SendNotification: Failed to create user notifications: %v", err)
@@ -371,31 +372,44 @@ func (r *mutationResolver) UploadReportImage(ctx context.Context, input model.Up
 		return nil, fmt.Errorf("unauthorized")
 	}
 
-	// Извлекаем данные файла из контекста
-	fileContent, ok := middleware.GetUploadedFileFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("uploaded file not found in context")
+	// input.File это ваш кастомный graphql.Upload
+	fileUpload := input.File
+
+	// Проверяем, что файл не пустой
+	if fileUpload.File == nil {
+		log.Printf("UploadReportImage: Received empty file upload")
+		return nil, fmt.Errorf("uploaded file is empty")
 	}
 
-	filename, ok := middleware.GetUploadedFilenameFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("uploaded filename not found in context")
+	// Получаем метаданные из fileUpload
+	filename := fileUpload.Filename
+	contentType := fileUpload.ContentType
+	size := fileUpload.Size
+
+	log.Printf("UploadReportImage: Received file: Name=%s, Size=%d bytes, ContentType=%s",
+		filename, size, contentType)
+
+	// Читаем содержимое файла
+	fileContent, err := io.ReadAll(fileUpload.File)
+	if err != nil {
+		log.Printf("UploadReportImage: Failed to read uploaded file content: %v", err)
+		return nil, fmt.Errorf("failed to read file content: %w", err)
 	}
 
-	contentType, ok := middleware.GetUploadedContentTypeFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("uploaded content type not found in context")
-	}
 
-	// Генерируем уникальное имя файла
-	uniqueFilename := fmt.Sprintf("%s_%d_%s", userClaims.UserID, time.Now().Unix(), filename)
+	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 
-	// Загружаем в S3
-	imageKey, err := r.ReportService.UploadImage(ctx, fileContent, uniqueFilename, contentType)
+	uniqueFilename := fmt.Sprintf("%s_%d_%s", userClaims.UserID, time.Now().UnixNano(), filename)
+
+	// Загружаем в S3, передавая bucket
+	imageKey, err := r.ReportService.UploadImage(ctx, bucket, fileContent, uniqueFilename, contentType)
 	if err != nil {
 		log.Printf("UploadReportImage: Failed to upload image for user %s: %v", userClaims.UserID, err)
 		return nil, fmt.Errorf("failed to upload image: %w", err)
 	}
+
+	log.Printf("UploadReportImage: Successfully uploaded file %s with key %s for user %s",
+		filename, imageKey, userClaims.UserID)
 
 	return &model.ImageUploadResult{
 		Key:  imageKey,
@@ -434,12 +448,12 @@ func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.Ad
 	if input.ApplicationsImageKeys != nil {
 		appKeys = input.ApplicationsImageKeys
 	}
-	
+
 	inspKeys := []string{}
 	if input.InspectionImageKeys != nil {
 		inspKeys = input.InspectionImageKeys
 	}
-	
+
 	addKeys := []string{}
 	if input.AdditionalImageKeys != nil {
 		addKeys = input.AdditionalImageKeys
@@ -659,7 +673,7 @@ func (r *queryResolver) GetUserWeeklyReports(ctx context.Context, userID primiti
 	if limit != nil && *limit > 0 {
 		limitVal = int64(*limit)
 	}
-	
+
 	offsetVal := int64(0)
 	if offset != nil && *offset > 0 {
 		offsetVal = int64(*offset)
@@ -676,8 +690,12 @@ func (r *queryResolver) GetUserWeeklyReports(ctx context.Context, userID primiti
 
 // GetReportImage is the resolver for the getReportImage field.
 func (r *queryResolver) GetReportImage(ctx context.Context, key string) (*model.ImageData, error) {
-	// Получаем изображение из S3
-	content, err := r.ReportService.GetImage(ctx, key)
+	// === ИЗМЕНЕНИЕ: Получаем bucket из конфигурации S3 ===
+	// Аналогично, как и в UploadReportImage
+	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
+
+	// Получаем изображение из S3, передавая bucket
+	content, err := r.ReportService.GetImage(ctx, bucket, key)
 	if err != nil {
 		log.Printf("GetReportImage: Failed to get image %s: %v", key, err)
 		return nil, fmt.Errorf("failed to get image: %w", err)

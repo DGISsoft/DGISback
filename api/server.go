@@ -134,7 +134,7 @@ func main() {
 		s3cfg.SecretKey,
 	)
 	
-
+	// Проверяем, что сервис инициализировался успешно
 	if s3.Service == nil {
 		log.Fatal("Failed to initialize S3 service")
 	}
@@ -188,6 +188,7 @@ func main() {
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
 	srv.AddTransport(transport.POST{})
+	srv.AddTransport(transport.MultipartForm{})
 
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
@@ -199,8 +200,7 @@ func main() {
 	muxGraphql := http.NewServeMux()
 	muxGraphql.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	
-
-	muxGraphql.Handle("/query", loggingMiddleware(c.Handler(middleware.UploadMiddleware(middleware.AuthMiddleware(srv)))))
+	muxGraphql.Handle("/query", loggingMiddleware(c.Handler(middleware.AuthMiddleware(srv))))
 
 	log.Printf("Starting GraphQL server on :%s", port)
 	if err := http.ListenAndServe(":"+port, muxGraphql); err != nil {

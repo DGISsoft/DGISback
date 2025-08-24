@@ -48,30 +48,6 @@ func GetResponseWriterFromContext(ctx context.Context) (http.ResponseWriter, err
 	return nil, fmt.Errorf("http.ResponseWriter not found in context")
 }
 
-// GetUploadedFileFromContext извлекает данные загруженного файла из контекста
-func GetUploadedFileFromContext(ctx context.Context) ([]byte, bool) {
-	if fileData, ok := ctx.Value("uploadedFile").([]byte); ok && fileData != nil {
-		return fileData, true
-	}
-	return nil, false
-}
-
-// GetUploadedFilenameFromContext извлекает имя загруженного файла из контекста
-func GetUploadedFilenameFromContext(ctx context.Context) (string, bool) {
-	if filename, ok := ctx.Value("filename").(string); ok && filename != "" {
-		return filename, true
-	}
-	return "", false
-}
-
-// GetUploadedContentTypeFromContext извлекает тип содержимого загруженного файла из контекста
-func GetUploadedContentTypeFromContext(ctx context.Context) (string, bool) {
-	if contentType, ok := ctx.Value("contentType").(string); ok && contentType != "" {
-		return contentType, true
-	}
-	return "", false
-}
-
 func SignalSetAuthCookieDirect(w http.ResponseWriter, tokenString string) {
 	tokenDuration := auth.GetTokenDuration()
 	http.SetCookie(w, &http.Cookie{

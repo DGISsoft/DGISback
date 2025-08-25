@@ -1,5 +1,4 @@
-// dataloader/dataloader.go
-package dataloader
+package dataloaders
 
 import (
 	"context"
@@ -12,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// ========== STRUCT ==========
+
 
 type Loaders struct {
 	UserLoader         *dataloader.Loader
@@ -22,7 +21,7 @@ type Loaders struct {
 	UserNotificationLoader *dataloader.Loader
 }
 
-// ========== CONSTRUCTOR ==========
+
 
 func NewLoaders(
 	userService *mongo.UserService,
@@ -95,8 +94,7 @@ func newMarkerLoader(service *mongo.MarkerService) *dataloader.Loader {
 			ids[i] = id
 		}
 
-		// Создаем фильтр для поиска маркеров по массиву ID
-		filter := primitive.M{"_id": primitive.M{"$in": ids}}
+
 		
 		// Получаем маркеры
 		markers, err := service.GetAllMarkersWithUsers(ctx) // Используем метод с пользователями

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/DGISsoft/DGISback/api/auth"
+	"github.com/DGISsoft/DGISback/dataloader"
+	"github.com/DGISsoft/DGISback/services/mongo"
 )
 
 
@@ -111,4 +113,33 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, rWithAuth)
 		log.Println("Auth: Handler finished")
 	})
+}
+
+
+func DataLoadersMiddleware(
+	userService *mongo.UserService,
+	markerService *mongo.MarkerService,
+	notificationService *mongo.NotificationService,
+	reportService *mongo.ReportService,
+) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Создаем даталоадеры
+			loaders := dataloader.NewLoaders(
+				userService,
+				markerService,
+				notificationService,
+				reportService,
+			)
+			
+			// Добавляем даталоадеры в контекст
+			ctxWithLoaders := dataloader.WithLoaders(r.Context(), loaders)
+			
+			// Передаем запрос дальше с обновленным контекстом
+			next.ServeHTTP(w, r.WithContext(ctxWithLoaders))
+			
+			// После выполнения запроса можно выполнить очистку, если нужно
+			// loaders.Clear() // если у тебя есть такой метод
+		})
+	}
 }

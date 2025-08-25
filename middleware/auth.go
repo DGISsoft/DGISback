@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/DGISsoft/DGISback/api/auth"
-	"github.com/DGISsoft/DGISback/dataloader"
+	dataloader "github.com/DGISsoft/DGISback/middleware/loaders"
 	"github.com/DGISsoft/DGISback/services/mongo"
 )
 

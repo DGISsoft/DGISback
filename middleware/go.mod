@@ -7,6 +7,7 @@ require (
 	github.com/DGISsoft/DGISback/models v0.0.0-20250824045235-6daf94304e34
 	github.com/DGISsoft/DGISback/services v0.0.0-20250825100842-ff620b7a65fc
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
+	go.mongodb.org/mongo-driver v1.17.4
 )
 
 require (
@@ -46,7 +47,6 @@ require (
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
-	go.mongodb.org/mongo-driver v1.17.4 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/text v0.28.0 // indirect

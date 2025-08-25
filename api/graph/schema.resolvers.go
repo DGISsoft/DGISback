@@ -530,7 +530,7 @@ func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
 	case models.UserRoleDgis:
 		log.Printf("Users query: DGIS user, returning all %d users", len(allUsers))
 		filteredUsers = allUsers
-	case models.UserRolePredsedatel:
+	case models.UserRolePredsedatel, models.UserRoleSupervisor:
 		for _, user := range allUsers {
 			if user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor {
 				filteredUsers = append(filteredUsers, user)
@@ -547,6 +547,76 @@ func (r *queryResolver) Users(ctx context.Context) ([]*models.User, error) {
 	}
 
 	log.Printf("Users query: Successfully retrieved and filtered %d users for requester %s", len(filteredUsers), userClaims.UserID)
+	return filteredUsers, nil
+}
+
+// Usersbyid is the resolver for the usersbyid field.
+func (r *queryResolver) Usersbyid(ctx context.Context, ids []primitive.ObjectID) ([]*models.User, error) {
+	// Проверяем авторизацию пользователя
+	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
+	if !isAuthenticated {
+		return nil, fmt.Errorf("unauthorized: valid authentication required")
+	}
+
+	log.Printf("Usersbyid query: Requested by user ID %s for %d user IDs", userClaims.UserID, len(ids))
+
+	// Если массив ID пуст, возвращаем пустой массив
+	if len(ids) == 0 {
+		return []*models.User{}, nil
+	}
+
+	// Получаем информацию о запрашивающем пользователе
+	requesterObjectID, err := primitive.ObjectIDFromHex(userClaims.UserID)
+	if err != nil {
+		log.Printf("Usersbyid query: Invalid ObjectID format in token for UserID: %s", userClaims.UserID)
+		return nil, fmt.Errorf("invalid authentication data")
+	}
+
+	requester, err := r.UserService.GetUserByID(ctx, requesterObjectID)
+	if err != nil {
+		log.Printf("Usersbyid query: Failed to get requester data for ID %s: %v", userClaims.UserID, err)
+		return nil, fmt.Errorf("could not retrieve requester information")
+	}
+
+	// Создаем фильтр для поиска пользователей по массиву ID
+	filter := bson.M{"_id": bson.M{"$in": ids}}
+
+	// Получаем пользователей из базы данных
+	users, err := r.UserService.FindUsers(ctx, filter)
+	if err != nil {
+		log.Printf("Usersbyid query: Failed to retrieve users from service: %v", err)
+		return nil, fmt.Errorf("could not retrieve users list: %w", err)
+	}
+
+	// Фильтруем результаты в зависимости от роли запрашивающего пользователя
+	var filteredUsers []*models.User
+	switch requester.Role {
+	case models.UserRoleDgis:
+		log.Printf("Usersbyid query: DGIS user, returning all %d requested users", len(users))
+		filteredUsers = users
+	case models.UserRolePredsedatel:
+		for _, user := range users {
+			if user.Role == models.UserRoleStarosta || user.Role == models.UserRoleSupervisor {
+				filteredUsers = append(filteredUsers, user)
+			}
+		}
+		log.Printf("Usersbyid query: PREDSEDATEL user, returning %d users (STAROSTA and SUPERVISOR only)", len(filteredUsers))
+	default:
+		log.Printf("Usersbyid query: User with role %s attempted to access users list - filtering applied", requester.Role)
+		// Для других ролей возвращаем только пользователей с соответствующими правами
+		for _, user := range users {
+			if user.Role == models.UserRoleStarosta {
+				filteredUsers = append(filteredUsers, user)
+			}
+		}
+	}
+
+	// Убираем пароли из ответа для безопасности
+	for _, user := range filteredUsers {
+		user.Password = ""
+	}
+
+	log.Printf("Usersbyid query: Successfully retrieved and filtered %d users for requester %s", len(filteredUsers), userClaims.UserID)
 	return filteredUsers, nil
 }
 
@@ -638,20 +708,8 @@ func (r *queryResolver) UnreadNotificationsCount(ctx context.Context) (int, erro
 	return count, nil
 }
 
-// GetWeeklyReport is the resolver for the getWeeklyReport field.
-func (r *queryResolver) GetWeeklyReport(ctx context.Context, id primitive.ObjectID) (*models.WeeklyReport, error) {
-	report, err := r.ReportService.GetWeeklyReportByID(ctx, id)
-	if err != nil {
-		log.Printf("GetWeeklyReport: Failed to get report %s: %v", id.Hex(), err)
-		return nil, fmt.Errorf("report not found: %w", err)
-	}
-
-	return report, nil
-}
-
 // GetWeeklyReports is the resolver for the getWeeklyReports field.
 func (r *queryResolver) GetWeeklyReports(ctx context.Context) ([]*models.WeeklyReport, error) {
-	// 1. Authenticate and identify the requester
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
 	if !isAuthenticated {
 		return nil, fmt.Errorf("unauthorized: valid authentication required")
@@ -669,17 +727,12 @@ func (r *queryResolver) GetWeeklyReports(ctx context.Context) ([]*models.WeeklyR
 		return nil, fmt.Errorf("could not retrieve requester information")
 	}
 
-	// 2. Define filter based on requester's role
 	var filter bson.M
-
-	// If the requester is a Predsedatel, they can see all reports
-	if requester.Role == models.UserRolePredsedatel {
-		// No specific filter needed, get all reports
+	switch requester.Role {
+	case models.UserRolePredsedatel:
 		filter = bson.M{}
 		log.Printf("GetWeeklyReports: Predsedatel %s requesting all reports", requester.ID.Hex())
-	} else if requester.Role == models.UserRoleDgis || requester.Role == models.UserRoleSupervisor {
-		// For DGIS and Supervisors, exclude reports FROM Predsedatels
-		// First, find all Predsedatel users to exclude their reports
+	case models.UserRoleDgis, models.UserRoleSupervisor:
 		predsedatelFilter := bson.M{"role": models.UserRolePredsedatel}
 		predsedateli, err := r.UserService.FindUsers(ctx, predsedatelFilter)
 		if err != nil {
@@ -688,7 +741,7 @@ func (r *queryResolver) GetWeeklyReports(ctx context.Context) ([]*models.WeeklyR
 			for _, p := range predsedateli {
 				excludeUserIDs = append(excludeUserIDs, p.ID)
 			}
-			
+
 			if len(excludeUserIDs) > 0 {
 				filter = bson.M{"userID": bson.M{"$nin": excludeUserIDs}}
 			} else {
@@ -699,13 +752,13 @@ func (r *queryResolver) GetWeeklyReports(ctx context.Context) ([]*models.WeeklyR
 			log.Printf("GetWeeklyReports: Could not fetch Predsedateli for filtering, returning all reports. Error: %v", err)
 			filter = bson.M{}
 		}
-	} else {
+	default:
 		log.Printf("GetWeeklyReports: User %s (%s) attempted to access, denying access", requester.Login, requester.Role)
 		return []*models.WeeklyReport{}, nil
 	}
 
 	var reports []*models.WeeklyReport
-	
+
 	err = query.FindMany(ctx, r.ReportService.GetCollection(), filter, &reports)
 	if err != nil {
 		log.Printf("GetWeeklyReports: Failed to retrieve reports with filter %+v: %v", filter, err)
@@ -716,45 +769,35 @@ func (r *queryResolver) GetWeeklyReports(ctx context.Context) ([]*models.WeeklyR
 	return reports, nil
 }
 
-
-// GetUserWeeklyReports is the resolver for the getUserWeeklyReports field.
-func (r *queryResolver) GetUserWeeklyReports(ctx context.Context, userID primitive.ObjectID, limit *int, offset *int) ([]*models.WeeklyReport, error) {
-	limitVal := int64(20)
-	if limit != nil && *limit > 0 {
-		limitVal = int64(*limit)
+// GetReportImages is the resolver for the getReportImages field.
+func (r *queryResolver) GetReportImages(ctx context.Context, key []string) ([]*model.ImageData, error) {
+	if len(key) == 0 {
+		return []*model.ImageData{}, nil
 	}
 
-	offsetVal := int64(0)
-	if offset != nil && *offset > 0 {
-		offsetVal = int64(*offset)
-	}
-
-	reports, err := r.ReportService.GetWeeklyReportsByUserID(ctx, userID, limitVal, offsetVal)
-	if err != nil {
-		log.Printf("GetUserWeeklyReports: Failed to get reports for user %s: %v", userID.Hex(), err)
-		return nil, fmt.Errorf("failed to get user reports: %w", err)
-	}
-
-	return reports, nil
-}
-
-// GetReportImage is the resolver for the getReportImage field.
-func (r *queryResolver) GetReportImage(ctx context.Context, key string) (*model.ImageData, error) {
 	bucket := env.GetEnv("S3_BUCKET", "your-default-bucket")
 
-	content, err := r.ReportService.GetImage(ctx, bucket, key)
-	if err != nil {
-		log.Printf("GetReportImage: Failed to get image %s: %v", key, err)
-		return nil, fmt.Errorf("failed to get image: %w", err)
+	var images []*model.ImageData
+
+	for _, k := range key {
+		content, err := r.ReportService.GetImage(ctx, bucket, k)
+		if err != nil {
+			log.Printf("GetReportImages: Failed to get image %s: %v", k, err)
+			// Продолжаем обработку остальных изображений даже если одно не удалось получить
+			continue
+		}
+
+		encoded := base64.StdEncoding.EncodeToString(content)
+
+		images = append(images, &model.ImageData{
+			Key:  k,
+			Data: encoded,
+			Size: len(content),
+		})
 	}
 
-	encoded := base64.StdEncoding.EncodeToString(content)
-
-	return &model.ImageData{
-		Key:  key,
-		Data: encoded,
-		Size: len(content),
-	}, nil
+	log.Printf("GetReportImages: Successfully retrieved %d out of %d requested images", len(images), len(key))
+	return images, nil
 }
 
 // UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.

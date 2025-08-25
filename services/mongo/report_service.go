@@ -272,3 +272,17 @@ func (s *ReportService) GetImage(
 
 	return content, nil
 }
+
+func (s *ReportService) FindReportsByUserIDs(ctx context.Context, userIDs []primitive.ObjectID) ([]*models.WeeklyReport, error) {
+    collection := s.GetCollection()
+    
+    filter := bson.M{"user_id": bson.M{"$in": userIDs}}
+    
+    var reports []*models.WeeklyReport
+    err := query.FindMany(ctx, collection, filter, &reports)
+    if err != nil {
+        return nil, fmt.Errorf("failed to find reports by user IDs: %w", err)
+    }
+    
+    return reports, nil
+}

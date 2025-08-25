@@ -269,3 +269,17 @@ func (s *NotificationService) NotifyUserNotificationChanged(ctx context.Context,
 		 log.Printf("NotificationService: Successfully published notification change to Redis for user %s on channel %s", userID.Hex(), channel)
 	}
 }
+
+func (s *NotificationService) FindNotificationsByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*models.Notification, error) {
+    collection := s.GetCollection("notifications")
+    
+    filter := bson.M{"_id": bson.M{"$in": ids}}
+    
+    var notifications []*models.Notification
+    err := query.FindMany(ctx, collection, filter, &notifications)
+    if err != nil {
+        return nil, fmt.Errorf("failed to find notifications by IDs: %w", err)
+    }
+    
+    return notifications, nil
+}

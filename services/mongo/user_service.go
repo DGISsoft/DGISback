@@ -151,3 +151,17 @@ func (s *UserService) FindUsers(ctx context.Context, filter bson.M) ([]*models.U
 
 	return users, nil
 }
+
+func (s *UserService) FindUsersByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*models.User, error) {
+    collection := s.GetCollection("users")
+    
+    filter := bson.M{"_id": bson.M{"$in": ids}}
+    
+    var users []*models.User
+    err := query.FindMany(ctx, collection, filter, &users)
+    if err != nil {
+        return nil, fmt.Errorf("failed to find users by IDs: %w", err)
+    }
+    
+    return users, nil
+}

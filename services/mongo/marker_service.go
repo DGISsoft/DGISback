@@ -290,3 +290,17 @@ func (s *MarkerService) GetMarkerByLabel(ctx context.Context, label string) (*mo
 
 	return &marker, nil
 }
+
+func (s *MarkerService) FindMarkersByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*models.Marker, error) {
+    collection := s.GetCollection("markers")
+    
+    filter := bson.M{"_id": bson.M{"$in": ids}}
+    
+    var markers []*models.Marker
+    err := query.FindMany(ctx, collection, filter, &markers)
+    if err != nil {
+        return nil, fmt.Errorf("failed to find markers by IDs: %w", err)
+    }
+    
+    return markers, nil
+}

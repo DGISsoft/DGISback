@@ -110,14 +110,13 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Dashboard                func(childComplexity int) int
-		GetReportImage           func(childComplexity int, key string) int
-		GetUserWeeklyReports     func(childComplexity int, userID primitive.ObjectID, limit *int, offset *int) int
-		GetWeeklyReport          func(childComplexity int, id primitive.ObjectID) int
+		GetReportImages          func(childComplexity int, key []string) int
 		GetWeeklyReports         func(childComplexity int) int
 		Me                       func(childComplexity int) int
 		MyNotifications          func(childComplexity int, statuses []models.NotificationStatus, limit *int, offset *int) int
 		UnreadNotificationsCount func(childComplexity int) int
 		Users                    func(childComplexity int) int
+		Usersbyid                func(childComplexity int, ids []primitive.ObjectID) int
 	}
 
 	Subscription struct {
@@ -181,13 +180,12 @@ type NotificationResolver interface {
 type QueryResolver interface {
 	Me(ctx context.Context) (*models.User, error)
 	Users(ctx context.Context) ([]*models.User, error)
+	Usersbyid(ctx context.Context, ids []primitive.ObjectID) ([]*models.User, error)
 	Dashboard(ctx context.Context) ([]*models.Marker, error)
 	MyNotifications(ctx context.Context, statuses []models.NotificationStatus, limit *int, offset *int) ([]*models.UserNotification, error)
 	UnreadNotificationsCount(ctx context.Context) (int, error)
-	GetWeeklyReport(ctx context.Context, id primitive.ObjectID) (*models.WeeklyReport, error)
 	GetWeeklyReports(ctx context.Context) ([]*models.WeeklyReport, error)
-	GetUserWeeklyReports(ctx context.Context, userID primitive.ObjectID, limit *int, offset *int) ([]*models.WeeklyReport, error)
-	GetReportImage(ctx context.Context, key string) (*model.ImageData, error)
+	GetReportImages(ctx context.Context, key []string) ([]*model.ImageData, error)
 }
 type SubscriptionResolver interface {
 	UnreadNotificationsCountChanged(ctx context.Context) (<-chan int, error)
@@ -499,41 +497,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.Dashboard(childComplexity), true
 
-	case "Query.getReportImage":
-		if e.complexity.Query.GetReportImage == nil {
+	case "Query.getReportImages":
+		if e.complexity.Query.GetReportImages == nil {
 			break
 		}
 
-		args, err := ec.field_Query_getReportImage_args(ctx, rawArgs)
+		args, err := ec.field_Query_getReportImages_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.GetReportImage(childComplexity, args["key"].(string)), true
-
-	case "Query.getUserWeeklyReports":
-		if e.complexity.Query.GetUserWeeklyReports == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getUserWeeklyReports_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetUserWeeklyReports(childComplexity, args["userID"].(primitive.ObjectID), args["limit"].(*int), args["offset"].(*int)), true
-
-	case "Query.getWeeklyReport":
-		if e.complexity.Query.GetWeeklyReport == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getWeeklyReport_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetWeeklyReport(childComplexity, args["id"].(primitive.ObjectID)), true
+		return e.complexity.Query.GetReportImages(childComplexity, args["key"].([]string)), true
 
 	case "Query.getWeeklyReports":
 		if e.complexity.Query.GetWeeklyReports == nil {
@@ -574,6 +548,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Users(childComplexity), true
+
+	case "Query.usersbyid":
+		if e.complexity.Query.Usersbyid == nil {
+			break
+		}
+
+		args, err := ec.field_Query_usersbyid_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Usersbyid(childComplexity, args["ids"].([]primitive.ObjectID)), true
 
 	case "Subscription.unreadNotificationsCountChanged":
 		if e.complexity.Subscription.UnreadNotificationsCountChanged == nil {
@@ -1049,46 +1035,14 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_getReportImage_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Query_getReportImages_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2ᚕstringᚄ)
 	if err != nil {
 		return nil, err
 	}
 	args["key"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_getUserWeeklyReports_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "userID", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
-	if err != nil {
-		return nil, err
-	}
-	args["userID"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "limit", ec.unmarshalOInt2ᚖint)
-	if err != nil {
-		return nil, err
-	}
-	args["limit"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "offset", ec.unmarshalOInt2ᚖint)
-	if err != nil {
-		return nil, err
-	}
-	args["offset"] = arg2
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_getWeeklyReport_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2goᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectID)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
 	return args, nil
 }
 
@@ -1110,6 +1064,17 @@ func (ec *executionContext) field_Query_myNotifications_args(ctx context.Context
 		return nil, err
 	}
 	args["offset"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_usersbyid_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "ids", ec.unmarshalNID2ᚕgoᚗmongodbᚗorgᚋmongoᚑdriverᚋbsonᚋprimitiveᚐObjectIDᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["ids"] = arg0
 	return args, nil
 }
 
@@ -2975,6 +2940,83 @@ func (ec *executionContext) fieldContext_Query_users(_ context.Context, field gr
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_usersbyid(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_usersbyid(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Usersbyid(rctx, fc.Args["ids"].([]primitive.ObjectID))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*models.User)
+	fc.Result = res
+	return ec.marshalNUser2ᚕᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐUserᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_usersbyid(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_User_id(ctx, field)
+			case "login":
+				return ec.fieldContext_User_login(ctx, field)
+			case "role":
+				return ec.fieldContext_User_role(ctx, field)
+			case "fullName":
+				return ec.fieldContext_User_fullName(ctx, field)
+			case "building":
+				return ec.fieldContext_User_building(ctx, field)
+			case "phoneNumber":
+				return ec.fieldContext_User_phoneNumber(ctx, field)
+			case "telegramTag":
+				return ec.fieldContext_User_telegramTag(ctx, field)
+			case "markers":
+				return ec.fieldContext_User_markers(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_User_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_User_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_usersbyid_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_dashboard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_dashboard(ctx, field)
 	if err != nil {
@@ -3142,89 +3184,6 @@ func (ec *executionContext) fieldContext_Query_unreadNotificationsCount(_ contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_getWeeklyReport(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getWeeklyReport(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetWeeklyReport(rctx, fc.Args["id"].(primitive.ObjectID))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*models.WeeklyReport)
-	fc.Result = res
-	return ec.marshalNWeeklyReport2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReport(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getWeeklyReport(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_WeeklyReport_id(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_WeeklyReport_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_WeeklyReport_updatedAt(ctx, field)
-			case "applications":
-				return ec.fieldContext_WeeklyReport_applications(ctx, field)
-			case "inspection":
-				return ec.fieldContext_WeeklyReport_inspection(ctx, field)
-			case "additional":
-				return ec.fieldContext_WeeklyReport_additional(ctx, field)
-			case "status":
-				return ec.fieldContext_WeeklyReport_status(ctx, field)
-			case "supervisorRate":
-				return ec.fieldContext_WeeklyReport_supervisorRate(ctx, field)
-			case "predsedatelRate":
-				return ec.fieldContext_WeeklyReport_predsedatelRate(ctx, field)
-			case "applicationsImageKeys":
-				return ec.fieldContext_WeeklyReport_applicationsImageKeys(ctx, field)
-			case "inspectionImageKeys":
-				return ec.fieldContext_WeeklyReport_inspectionImageKeys(ctx, field)
-			case "additionalImageKeys":
-				return ec.fieldContext_WeeklyReport_additionalImageKeys(ctx, field)
-			case "userID":
-				return ec.fieldContext_WeeklyReport_userID(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type WeeklyReport", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getWeeklyReport_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Query_getWeeklyReports(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_getWeeklyReports(ctx, field)
 	if err != nil {
@@ -3297,8 +3256,8 @@ func (ec *executionContext) fieldContext_Query_getWeeklyReports(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_getUserWeeklyReports(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getUserWeeklyReports(ctx, field)
+func (ec *executionContext) _Query_getReportImages(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getReportImages(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -3311,7 +3270,7 @@ func (ec *executionContext) _Query_getUserWeeklyReports(ctx context.Context, fie
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetUserWeeklyReports(rctx, fc.Args["userID"].(primitive.ObjectID), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
+		return ec.resolvers.Query().GetReportImages(rctx, fc.Args["key"].([]string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3323,95 +3282,12 @@ func (ec *executionContext) _Query_getUserWeeklyReports(ctx context.Context, fie
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*models.WeeklyReport)
+	res := resTmp.([]*model.ImageData)
 	fc.Result = res
-	return ec.marshalNWeeklyReport2ᚕᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋmodelsᚐWeeklyReportᚄ(ctx, field.Selections, res)
+	return ec.marshalNImageData2ᚕᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageDataᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_getUserWeeklyReports(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_WeeklyReport_id(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_WeeklyReport_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_WeeklyReport_updatedAt(ctx, field)
-			case "applications":
-				return ec.fieldContext_WeeklyReport_applications(ctx, field)
-			case "inspection":
-				return ec.fieldContext_WeeklyReport_inspection(ctx, field)
-			case "additional":
-				return ec.fieldContext_WeeklyReport_additional(ctx, field)
-			case "status":
-				return ec.fieldContext_WeeklyReport_status(ctx, field)
-			case "supervisorRate":
-				return ec.fieldContext_WeeklyReport_supervisorRate(ctx, field)
-			case "predsedatelRate":
-				return ec.fieldContext_WeeklyReport_predsedatelRate(ctx, field)
-			case "applicationsImageKeys":
-				return ec.fieldContext_WeeklyReport_applicationsImageKeys(ctx, field)
-			case "inspectionImageKeys":
-				return ec.fieldContext_WeeklyReport_inspectionImageKeys(ctx, field)
-			case "additionalImageKeys":
-				return ec.fieldContext_WeeklyReport_additionalImageKeys(ctx, field)
-			case "userID":
-				return ec.fieldContext_WeeklyReport_userID(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type WeeklyReport", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getUserWeeklyReports_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getReportImage(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getReportImage(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetReportImage(rctx, fc.Args["key"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.ImageData)
-	fc.Result = res
-	return ec.marshalNImageData2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageData(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getReportImage(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_getReportImages(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -3436,7 +3312,7 @@ func (ec *executionContext) fieldContext_Query_getReportImage(ctx context.Contex
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getReportImage_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_getReportImages_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4292,14 +4168,11 @@ func (ec *executionContext) _UserNotification_readAt(ctx context.Context, field 
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*time.Time)
 	fc.Result = res
-	return ec.marshalNTime2ᚖtimeᚐTime(ctx, field.Selections, res)
+	return ec.marshalOTime2ᚖtimeᚐTime(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_UserNotification_readAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -7732,6 +7605,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "usersbyid":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_usersbyid(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "dashboard":
 			field := field
 
@@ -7798,28 +7693,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getWeeklyReport":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getWeeklyReport(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "getWeeklyReports":
 			field := field
 
@@ -7842,7 +7715,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getUserWeeklyReports":
+		case "getReportImages":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -7851,29 +7724,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_getUserWeeklyReports(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getReportImage":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getReportImage(ctx, field)
+				res = ec._Query_getReportImages(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -8113,9 +7964,6 @@ func (ec *executionContext) _UserNotification(ctx context.Context, sel ast.Selec
 			}
 		case "readAt":
 			out.Values[i] = ec._UserNotification_readAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8709,8 +8557,48 @@ func (ec *executionContext) marshalNID2ᚕgoᚗmongodbᚗorgᚋmongoᚑdriverᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNImageData2githubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageData(ctx context.Context, sel ast.SelectionSet, v model.ImageData) graphql.Marshaler {
-	return ec._ImageData(ctx, sel, &v)
+func (ec *executionContext) marshalNImageData2ᚕᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageDataᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ImageData) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNImageData2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageData(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNImageData2ᚖgithubᚗcomᚋDGISsoftᚋDGISbackᚋapiᚋgraphᚋmodelᚐImageData(ctx context.Context, sel ast.SelectionSet, v *model.ImageData) graphql.Marshaler {
@@ -8959,28 +8847,6 @@ func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v an
 func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel ast.SelectionSet, v time.Time) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalTime(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-	}
-	return res
-}
-
-func (ec *executionContext) unmarshalNTime2ᚖtimeᚐTime(ctx context.Context, v any) (*time.Time, error) {
-	res, err := graphql.UnmarshalTime(v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNTime2ᚖtimeᚐTime(ctx context.Context, sel ast.SelectionSet, v *time.Time) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	_ = sel
-	res := graphql.MarshalTime(*v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -9652,6 +9518,24 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = sel
 	_ = ctx
 	res := graphql.MarshalString(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOTime2ᚖtimeᚐTime(ctx context.Context, v any) (*time.Time, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalTime(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel ast.SelectionSet, v *time.Time) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalTime(*v)
 	return res
 }
 

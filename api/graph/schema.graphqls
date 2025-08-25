@@ -115,7 +115,7 @@ type UserNotification {
   notification: Notification!
   status: NotificationStatus!
   createdAt: Time!
-  readAt: Time!
+  readAt: Time
 }
 
 input SendNotificationInput {
@@ -164,7 +164,10 @@ input LoginInput {
 type Query {
   me: User
   users: [User!]!
+  usersbyid(ids: [ID!]!): [User!]!
+
   dashboard: [Marker!]!
+
   myNotifications(
     statuses: [NotificationStatus!]
     limit: Int
@@ -172,10 +175,8 @@ type Query {
   ): [UserNotification!]!
   unreadNotificationsCount: Int!
 
-  getWeeklyReport(id: ID!): WeeklyReport!
   getWeeklyReports: [WeeklyReport!]!
-  getUserWeeklyReports(userID: ID!, limit: Int, offset: Int): [WeeklyReport!]!
-  getReportImage(key: String!): ImageData!
+  getReportImages(key: [String!]!): [ImageData!]!
 }
 
 type Mutation {
@@ -183,8 +184,10 @@ type Mutation {
   logout: Boolean!
   createUser(input: CreateUserInput!): User!
   deleteUser(id: ID!): Boolean!
+
   assignUser(input: AssignUserInput!): Marker!
   removeUser(input: RemoveUserInput!): Marker!
+
   sendNotification(input: SendNotificationInput!): Boolean!
   markNotificationAsRead(id: ID!): Boolean!
 

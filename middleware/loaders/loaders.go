@@ -1,4 +1,4 @@
-package loaders
+package dataloader
 
 import (
 	"context"
@@ -11,8 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-
-
 type Loaders struct {
 	UserLoader         *dataloader.Loader
 	MarkerLoader       *dataloader.Loader
@@ -20,8 +18,6 @@ type Loaders struct {
 	ReportLoader       *dataloader.Loader
 	UserNotificationLoader *dataloader.Loader
 }
-
-
 
 func NewLoaders(
 	userService *mongo.UserService,
@@ -94,8 +90,6 @@ func newMarkerLoader(service *mongo.MarkerService) *dataloader.Loader {
 			ids[i] = id
 		}
 
-
-		
 		// Получаем маркеры
 		markers, err := service.GetAllMarkersWithUsers(ctx) // Используем метод с пользователями
 		if err != nil {
@@ -216,6 +210,8 @@ func resultsWithError(count int, err error) []*dataloader.Result {
 	return results
 }
 
+// ========== CONTEXT HELPERS ==========
+
 // Для получения Loaders из контекста
 type ctxKey string
 
@@ -227,4 +223,16 @@ func For(ctx context.Context) *Loaders {
 
 func WithLoaders(ctx context.Context, loaders *Loaders) context.Context {
 	return context.WithValue(ctx, loadersKey, loaders)
+}
+
+// ========== CUSTOM KEY HELPERS ==========
+
+// StringKey создает ключ даталоадера из строки
+func StringKey(s string) dataloader.Key {
+	return dataloader.StringKey(s)
+}
+
+// ObjectIDKey создает ключ даталоадера из ObjectID
+func ObjectIDKey(id primitive.ObjectID) dataloader.Key {
+	return dataloader.StringKey(id.Hex())
 }

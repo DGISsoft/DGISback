@@ -12,11 +12,13 @@ require (
 
 require (
 	github.com/DGISsoft/DGISback/env v0.0.0-20250821061323-11d96099f993
-	github.com/DGISsoft/DGISback/middleware v0.0.0-20250824055517-f0c998379dd2
+	github.com/DGISsoft/DGISback/middleware v0.0.0-20250825101746-ad607bcb0cbb
 	github.com/DGISsoft/DGISback/models v0.0.0-20250824045235-6daf94304e34
-	github.com/DGISsoft/DGISback/services v0.0.0-20250824105200-686603fa91b5
+	github.com/DGISsoft/DGISback/services v0.0.0-20250825100842-ff620b7a65fc
 	github.com/gorilla/websocket v1.5.3
 )
+
+require github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 
 require (
 	github.com/agnivade/levenshtein v1.2.1 // indirect
@@ -43,7 +45,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect

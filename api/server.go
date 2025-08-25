@@ -158,6 +158,14 @@ func main() {
 	})
 	
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
+
+
+	dataloadersMiddleware := middleware.DataLoadersMiddleware(
+		userService,
+		markerService,
+		notificationService,
+		reportService,
+	)
 	
 
 	srv.AddTransport(transport.Websocket{
@@ -199,7 +207,7 @@ func main() {
 	muxGraphql := http.NewServeMux()
 	muxGraphql.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	
-	muxGraphql.Handle("/query", loggingMiddleware(c.Handler(middleware.AuthMiddleware(srv))))
+	muxGraphql.Handle("/query", loggingMiddleware(c.Handler(dataloadersMiddleware(middleware.AuthMiddleware(srv)))))
 
 	log.Printf("Starting GraphQL server on :%s", port)
 	if err := http.ListenAndServe(":"+port, muxGraphql); err != nil {

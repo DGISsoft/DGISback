@@ -18,9 +18,14 @@ import (
 	"github.com/DGISsoft/DGISback/middleware"
 	"github.com/DGISsoft/DGISback/models"
 	"github.com/DGISsoft/DGISback/services/mongo/query"
+	dataloader "github.com/graph-gophers/dataloader"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+// ================================================================================
+// MUTATION RESOLVERS
+// ================================================================================
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
@@ -313,9 +318,7 @@ func (r *mutationResolver) MarkNotificationAsRead(ctx context.Context, id primit
 
 	err = r.RedisService.Publish(ctx, redisChannel, "updated")
 	if err != nil {
-
 		log.Printf("MarkNotificationAsRead: Failed to publish to Redis channel %s: %v", redisChannel, err)
-
 	} else {
 		log.Printf("MarkNotificationAsRead: Successfully published to Redis channel: %s", redisChannel)
 	}
@@ -459,21 +462,9 @@ func (r *mutationResolver) AddImagesToReport(ctx context.Context, input model.Ad
 	return updatedReport, nil
 }
 
-// Sender is the resolver for the sender field.
-func (r *notificationResolver) Sender(ctx context.Context, obj *models.Notification) (*model.NotificationSender, error) {
-	user, err := r.UserService.GetUserByID(ctx, obj.SenderID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get sender user: %w", err)
-	}
-
-	sender := &model.NotificationSender{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Building: user.Building,
-	}
-
-	return sender, nil
-}
+// ================================================================================
+// QUERY RESOLVERS
+// ================================================================================
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*models.User, error) {
@@ -578,14 +569,24 @@ func (r *queryResolver) Usersbyid(ctx context.Context, ids []primitive.ObjectID)
 		return nil, fmt.Errorf("could not retrieve requester information")
 	}
 
-	// Создаем фильтр для поиска пользователей по массиву ID
-	filter := bson.M{"_id": bson.M{"$in": ids}}
+	// Получаем пользователей через даталоадер
+	loaders := dataloader.For(ctx)
+	keys := make([]string, len(ids))
+	for i, id := range ids {
+		keys[i] = id.Hex()
+	}
 
-	// Получаем пользователей из базы данных
-	users, err := r.UserService.FindUsers(ctx, filter)
-	if err != nil {
-		log.Printf("Usersbyid query: Failed to retrieve users from service: %v", err)
-		return nil, fmt.Errorf("could not retrieve users list: %w", err)
+	var users []*models.User
+	for _, key := range keys {
+		thunk := loaders.UserLoader.Load(ctx, dataloader.StringKey(key))
+		result, err := thunk()
+		if err != nil {
+			log.Printf("Usersbyid query: Error loading user %s: %v", key, err)
+			continue
+		}
+		if user, ok := result.(*models.User); ok {
+			users = append(users, user)
+		}
 	}
 
 	// Фильтруем результаты в зависимости от роли запрашивающего пользователя
@@ -800,6 +801,10 @@ func (r *queryResolver) GetReportImages(ctx context.Context, key []string) ([]*m
 	return images, nil
 }
 
+// ================================================================================
+// SUBSCRIPTION RESOLVERS
+// ================================================================================
+
 // UnreadNotificationsCountChanged is the resolver for the unreadNotificationsCountChanged field.
 func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Context) (<-chan int, error) {
 	userClaims, isAuthenticated := middleware.GetUserFromContext(ctx)
@@ -891,22 +896,53 @@ func (r *subscriptionResolver) UnreadNotificationsCountChanged(ctx context.Conte
 	return notificationsChannel, nil
 }
 
+// ================================================================================
+// TYPE RESOLVERS
+// ================================================================================
+
+// Sender is the resolver for the sender field.
+func (r *notificationResolver) Sender(ctx context.Context, obj *models.Notification) (*model.NotificationSender, error) {
+	// Используем даталоадер для загрузки отправителя
+	loaders := dataloader.For(ctx)
+	thunk := loaders.UserLoader.Load(ctx, dataloader.StringKey(obj.SenderID.Hex()))
+	result, err := thunk()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sender user: %w", err)
+	}
+
+	user, ok := result.(*models.User)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
+	sender := &model.NotificationSender{
+		ID:       user.ID,
+		FullName: user.FullName,
+		Building: user.Building,
+	}
+
+	return sender, nil
+}
+
 // Markers is the resolver for the markers field.
 func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models.Marker, error) {
 	if len(obj.Markers) == 0 {
 		return []*models.Marker{}, nil
 	}
 
-	filter := bson.M{"_id": bson.M{"$in": obj.Markers}}
-
-	markerCollection := r.MarkerService.GetCollection("markers")
-
+	// Используем даталоадер для загрузки маркеров
+	loaders := dataloader.For(ctx)
 	var markers []*models.Marker
-
-	err := query.FindMany(ctx, markerCollection, filter, &markers)
-	if err != nil {
-		log.Printf("userResolver.Markers: DB error for user %s (%s): %v", obj.Login, obj.ID.Hex(), err)
-		return []*models.Marker{}, nil
+	for _, markerID := range obj.Markers {
+		thunk := loaders.MarkerLoader.Load(ctx, dataloader.StringKey(markerID.Hex()))
+		result, err := thunk()
+		if err != nil {
+			log.Printf("userResolver.Markers: Error loading marker %s: %v", markerID.Hex(), err)
+			continue
+		}
+		if marker, ok := result.(*models.Marker); ok {
+			markers = append(markers, marker)
+		}
 	}
 
 	return markers, nil
@@ -914,13 +950,44 @@ func (r *userResolver) Markers(ctx context.Context, obj *models.User) ([]*models
 
 // Notification is the resolver for the notification field.
 func (r *userNotificationResolver) Notification(ctx context.Context, obj *models.UserNotification) (*models.Notification, error) {
-	notification, err := r.NotificationService.GetNotificationByID(ctx, obj.NotificationID)
+	// Используем даталоадер для загрузки уведомления
+	loaders := dataloader.For(ctx)
+	thunk := loaders.NotificationLoader.Load(ctx, dataloader.StringKey(obj.NotificationID.Hex()))
+	result, err := thunk()
 	if err != nil {
 		log.Printf("userNotificationResolver.Notification: Failed to get notification %s: %v", obj.NotificationID.Hex(), err)
 		return nil, fmt.Errorf("failed to load notification details: %w", err)
 	}
+
+	notification, ok := result.(*models.Notification)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
 	return notification, nil
 }
+
+// Reports is the resolver for the reports field.
+func (r *userResolver) Reports(ctx context.Context, obj *models.User) ([]*models.WeeklyReport, error) {
+	// Используем даталоадер для загрузки отчетов пользователя
+	loaders := dataloader.For(ctx)
+	thunk := loaders.ReportLoader.Load(ctx, dataloader.StringKey(obj.ID.Hex()))
+	result, err := thunk()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load reports: %w", err)
+	}
+
+	reports, ok := result.([]*models.WeeklyReport)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type")
+	}
+
+	return reports, nil
+}
+
+// ================================================================================
+// RESOLVER INTERFACE IMPLEMENTATIONS
+// ================================================================================
 
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
@@ -939,6 +1006,10 @@ func (r *Resolver) User() UserResolver { return &userResolver{r} }
 
 // UserNotification returns UserNotificationResolver implementation.
 func (r *Resolver) UserNotification() UserNotificationResolver { return &userNotificationResolver{r} }
+
+// ================================================================================
+// RESOLVER STRUCTS
+// ================================================================================
 
 type mutationResolver struct{ *Resolver }
 type notificationResolver struct{ *Resolver }
